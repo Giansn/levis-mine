@@ -1492,37 +1492,189 @@ function tiefenFarbe(t){
   return [26, 20, 40];
 }
 
+const KETTEN = [
+  {faktor:0.10, punkte:24, abstand:150, basis:2.4, streu:10.0, kern:11, saum:0,
+   flaeche:'#93a6bd', schatten:'#8b9fb8', kante:'rgba(255,250,240,.14)',
+   schnee:null, schneeSchatten:null, schneeAb:0, dunst:false},
+  {faktor:0.18, punkte:26, abstand:132, basis:2.6, streu:12.0, kern:29, saum:0,
+   flaeche:'#7d93b0', schatten:'#6d84a3', kante:'rgba(255,250,240,.20)',
+   schnee:'#d3dde8', schneeSchatten:'#b3c3d5', schneeAb:7.0, dunst:false},
+  {faktor:0.30, punkte:30, abstand:116, basis:2.2, streu:13.0, kern:53, saum:0,
+   flaeche:'#61799c', schatten:'#4e6788', kante:'rgba(255,248,235,.28)',
+   schnee:'#c6d4e3', schneeSchatten:'#a3b6cd', schneeAb:7.0, dunst:false},
+  {faktor:0.46, punkte:36, abstand:98,  basis:1.4, streu:6.0, kern:71, saum:7,
+   flaeche:'#465f80', schatten:'#35496a', kante:null,
+   schnee:null, schneeSchatten:null, schneeAb:0, dunst:true},
+];
+
 function zeichneHimmel(){
-  const oben = -kamera.y;
-  const g = ctx.createLinearGradient(0, oben, 0, oben + FUSS*K);
-  g.addColorStop(0,   '#1b2f52');
-  g.addColorStop(0.5, '#3f6a9c');
-  g.addColorStop(1,   '#8fb4d8');
-  ctx.fillStyle = g;
-  // nach oben weit ueberzeichnen, sonst klafft ueber dem Himmel ein schwarzes Band
+  const oben  = -kamera.y;                  // Bildschirmzeile der Weltoberkante
+  const grund = FUSS*K - kamera.y;          // Bildschirmzeile des Bergfusses
+
+  /* ------------------------------- Himmel -------------------------------- */
+  /* Die Farbe kippt von oben nach unten: kaltes Höhenblau, darunter Tagblau,
+     zuunterst der blasse Dunst über dem Tal. */
+  const himmel = ctx.createLinearGradient(0, oben, 0, grund);
+  himmel.addColorStop(0.00, '#14264a');
+  himmel.addColorStop(0.32, '#274a7d');
+  himmel.addColorStop(0.62, '#5981ad');
+  himmel.addColorStop(0.86, '#a3b9cb');
+  himmel.addColorStop(1.00, '#ccccc4');
+  ctx.fillStyle = himmel;
+  // nach oben weit überzeichnen, sonst klafft über dem Himmel ein schwarzes Band
   ctx.fillRect(0, oben - H, W, H + FUSS*K + 4);
 
-  // Sonne
-  ctx.fillStyle = 'rgba(255,236,170,.85)';
-  ctx.beginPath(); ctx.arc(W - 110, oben + 52, 24, 0, 7); ctx.fill();
+  /* -------------------------------- Sonne -------------------------------- */
+  /* Sie steht tief über den fernen Ketten und liegt links, damit die hellen
+     Kanten weiter unten eine Quelle haben. Bewegungsfaktor 0.04, also
+     praktisch unendlich weit weg. In der Höhe hängt sie am Grund, dadurch
+     wandert sie beim Aufstieg richtig mit. */
+  // Auf schmalen Geräten schiebt das Höchstmass sie hinter der Statustafel hervor
+  const sx = Math.max(W*0.24, 7*K) - kamera.x*0.04;
+  const sy = Math.max(grund - 10.5*K, 96);   // nicht hinter die Kopfleiste rutschen
+  const hof = ctx.createRadialGradient(sx, sy, 0, sx, sy, 7.5*K);
+  hof.addColorStop(0, 'rgba(255,238,198,.26)');
+  hof.addColorStop(1, 'rgba(255,238,198,0)');
+  ctx.fillStyle = hof;
+  ctx.fillRect(sx - 7.5*K, sy - 7.5*K, 15*K, 15*K);
+  ctx.fillStyle = 'rgba(255,240,201,.94)';
+  ctx.beginPath(); ctx.arc(sx, sy, 0.55*K, 0, 7); ctx.fill();
 
-  // Ferne Nachbarberge, blass und tief gehalten, damit der eigene Berg wirkt
-  const grund = FUSS*K - kamera.y;
-  ctx.fillStyle = 'rgba(43,63,94,.55)';
-  ctx.beginPath();
-  ctx.moveTo(-kamera.x*0.22 - 300, grund);
-  for (let i = 0; i <= 16; i++){
-    const bx = -kamera.x*0.22 - 300 + i*210;
-    ctx.lineTo(bx + 105, grund - (110 + (i%3)*70));
-    ctx.lineTo(bx + 210, grund);
+  /* ------------------------------- Ketten -------------------------------- */
+  const px = [], py = [];
+  for (const kk of KETTEN){
+
+    /* Dunst vor der vordersten Kette. Er nimmt den hinteren Ketten den Fuss,
+       erst dadurch stehen sie wirklich weit hinten. Der Vorberg wird danach
+       darüber gezeichnet und tritt damit nach vorn. */
+    if (kk.dunst){
+      const d = ctx.createLinearGradient(0, grund - 11*K, 0, grund);
+      d.addColorStop(0.00, 'rgba(203,211,213,0)');
+      d.addColorStop(0.55, 'rgba(203,211,213,.32)');
+      d.addColorStop(1.00, 'rgba(212,210,200,.60)');
+      ctx.fillStyle = d;
+      ctx.fillRect(0, grund - 11*K, W, 11*K);
+      // Warmer Schein unter der Sonne, er begründet das Licht auf den Flanken
+      const s = ctx.createRadialGradient(sx, grund - 3*K, 0, sx, grund - 3*K, 14*K);
+      s.addColorStop(0, 'rgba(255,226,172,.22)');
+      s.addColorStop(1, 'rgba(255,226,172,0)');
+      ctx.fillStyle = s;
+      ctx.fillRect(sx - 14*K, grund - 17*K, 28*K, 14*K);
+    }
+
+    // Kammpunkte einsammeln, ein Punkt mehr als nötig auf jeder Seite
+    const vx = kamera.x * kk.faktor;
+    const i0 = Math.floor(vx / kk.abstand) - 1;
+    const i1 = Math.ceil((vx + W) / kk.abstand) + 1;
+    px.length = 0; py.length = 0;
+    for (let i = i0; i <= i1; i++){
+      const j = ((i % kk.punkte) + kk.punkte) % kk.punkte;
+      const a = hash(j*17 + kk.kern*3, kk.kern*11 + 5);
+      const b = hash(kk.kern*29 + 7, j*13 + kk.kern);
+      // Jeder zweite Punkt ist ein Sattel, dazwischen steht ein Gipfel
+      const zacke = (j % 2 === 0) ? 1 : 0.46;
+      const hoch = (kk.basis + kk.streu * zacke * (0.30 + 0.70*a) * (0.62 + 0.38*b)) * K;
+      px.push(i*kk.abstand - vx);
+      py.push(grund - hoch);
+    }
+    const n1 = px.length - 1;
+
+    // Grundfläche der Kette, ein einziger Ton bis hinunter zum Grund
+    ctx.fillStyle = kk.flaeche;
+    ctx.beginPath();
+    ctx.moveTo(px[0], grund);
+    for (let n = 0; n <= n1; n++) ctx.lineTo(px[n], py[n]);
+    ctx.lineTo(px[n1], grund);
+    ctx.closePath();
+    ctx.fill();
+
+    /* Facetten. Das Licht kommt von links, also bleibt die linke Flanke jedes
+       Gipfels im Grundton und die rechte bekommt eine eigene, dunklere Fläche.
+       Die Kante zwischen beiden läuft senkrecht durch den Gipfel. */
+    ctx.fillStyle = kk.schatten;
+    ctx.beginPath();
+    for (let n = 0; n < n1; n++){
+      if (py[n+1] <= py[n]) continue;         // steigt an, liegt im Licht
+      ctx.moveTo(px[n], py[n]);
+      ctx.lineTo(px[n+1], py[n+1]);
+      ctx.lineTo(px[n+1], grund);
+      ctx.lineTo(px[n], grund);
+      ctx.closePath();
+    }
+    ctx.fill();
+
+    /* Schneekappen, nur auf den hohen Gipfeln. Auch sie sind zwei Flächen mit
+       einer harten Kante, sonst fielen sie aus der Machart heraus. */
+    if (kk.schnee){
+      for (let n = 1; n < n1; n++){
+        if (!(py[n] < py[n-1] && py[n] < py[n+1])) continue;   // kein Gipfel
+        if (grund - py[n] < kk.schneeAb*K) continue;           // zu niedrig
+        const lx = px[n] + (px[n-1] - px[n])*0.30, ly = py[n] + (py[n-1] - py[n])*0.30;
+        const rx = px[n] + (px[n+1] - px[n])*0.22, ry = py[n] + (py[n+1] - py[n])*0.22;
+        const mx = (lx + rx)/2, my = Math.max(ly, ry) + 0.10*K;
+        ctx.fillStyle = kk.schnee;
+        ctx.beginPath();
+        ctx.moveTo(lx, ly); ctx.lineTo(px[n], py[n]); ctx.lineTo(rx, ry); ctx.lineTo(mx, my);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = kk.schneeSchatten;
+        ctx.beginPath();
+        ctx.moveTo(px[n], py[n]); ctx.lineTo(rx, ry); ctx.lineTo(mx, my);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+
+    // Dünne helle Linie auf der Lichtseite, das einzige Licht im Hintergrund
+    if (kk.kante){
+      ctx.strokeStyle = kk.kante;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let n = 0; n < n1; n++){
+        if (py[n+1] > py[n]) continue;        // Schattenseite bleibt ohne Linie
+        ctx.moveTo(px[n],   py[n]   + 0.7);
+        ctx.lineTo(px[n+1], py[n+1] + 0.7);
+      }
+      ctx.stroke();
+    }
+
+    /* Nadelwald auf dem Kamm des Vorbergs. Kleine Zacken im selben Ton wie die
+       Fläche darunter, hell auf der Licht-, dunkel auf der Schattenseite.
+       Das gibt der nächsten Kette eine andere Kante als den fernen und hält
+       sie trotzdem ruhig. */
+    if (kk.saum){
+      for (let d = 0; d < 2; d++){
+        ctx.fillStyle = d ? kk.schatten : kk.flaeche;
+        ctx.beginPath();
+        for (let n = 0; n < n1; n++){
+          if ((py[n+1] > py[n]) !== (d === 1)) continue;
+          const j = (((i0 + n) % kk.punkte) + kk.punkte) % kk.punkte;
+          const breit = px[n+1] - px[n];
+          const anzahl = Math.max(1, Math.round(breit/9));
+          for (let s = 0; s < anzahl; s++){
+            const t = (s + 0.5)/anzahl;
+            const bx = px[n] + breit*t;
+            const by = py[n] + (py[n+1] - py[n])*t;
+            const bh = kk.saum * (0.55 + hash(j*31 + s*7, s*13 + kk.kern));
+            ctx.moveTo(bx - 3.1, by + 1.5);
+            ctx.lineTo(bx,       by - bh);
+            ctx.lineTo(bx + 3.1, by + 1.5);
+            ctx.closePath();
+          }
+        }
+        ctx.fill();
+      }
+    }
   }
-  ctx.closePath(); ctx.fill();
+
+  /* Ganz unten derselbe Dunst noch einmal dünn darüber. Damit verliert auch der
+     Vorberg seinen Fuss, und das eigene Gelände setzt gleich darunter mit
+     vollem Ton an. */
+  const talDunst = ctx.createLinearGradient(0, grund - 3.4*K, 0, grund);
+  talDunst.addColorStop(0, 'rgba(198,205,207,0)');
+  talDunst.addColorStop(1, 'rgba(198,205,207,.38)');
+  ctx.fillStyle = talDunst;
+  ctx.fillRect(0, grund - 3.4*K, W, 3.4*K);
 }
 
-/* --------------------------- Basis am Bergfuss ---------------------------- */
-/* Enge Palette, je Flaeche genau ein Ton, kein Verlauf innerhalb einer Flaeche.
-   Das Licht faellt von links, darum liegen die duennen hellen Linien auf den
-   linken und oberen Kanten. */
 const BASIS_TON = {
   fels:'#57545f',   felsHell:'#6e6b78',   felsDunkel:'#3c3945',
   stahl:'#4d5a68',  stahlHell:'#8394a3',  stahlDunkel:'#333d49',
@@ -1541,6 +1693,7 @@ const BASIS_TON = {
    Weltkoordinaten, damit es mit der Kamera mitwandert.
    Masse: rund 4,8 Kacheln breit, 3,7 Kacheln hoch. Levi ist 24 x 31 Pixel gross
    und steht beim Start genau in der Oeffnung. */
+
 function zeichneHaus(){
   const bod = basisY()*K - kamera.y;            // Bodenlinie der Terrasse
   const pc  = (BASIS_X + 0.35)*K - kamera.x;    // Mitte des Mundlochs, dort steht Levi
@@ -1822,15 +1975,182 @@ function zeichneBau(x, y, px, py){
   }
 }
 
-function zeichneLevi(){
-  const px = P.x*K - kamera.x, py = P.y*K - kamera.y;
-  const b = P.b*K, h = P.h*K;
-  const cx = px + b/2;
+const LEVI = {
+  helm:'#e2971b',  helmH:'#ffd25e',  helmD:'#94590c',
+  haut:'#e9b083',  hautD:'#a97143',
+  jacke:'#35678f', jackeH:'#5f9dcb', jackeD:'#1d3a58',
+  hose:'#3d4a68',  hoseD:'#2f3950',  stiefel:'#3b4150',
+  guertel:'#8f5a20',
+  sack:'#4c5b39',  sackD:'#2e3722',
+  stiel:'#8a5f36', metall:'#c9ced8', metallH:'#f4f7fb', metallD:'#6b717d',
+  licht:'#fff3c0',
+  pod:'#cf7c1c',   podH:'#ffb14b',   podD:'#8a4c10',  rahmen:'#2a2531',
+  glas:'#2b6f8c',  glasH:'#9ee6ff',
+  stahl:'#b7bdc8', stahlD:'#5b616d',
+  flammeA:'#ff8a1e', flammeB:'#ffe07a',
+};
 
-  ctx.fillStyle = 'rgba(0,0,0,.35)';
-  ctx.beginPath(); ctx.ellipse(cx, py + h + 2, b*0.55, 4, 0, 0, 7); ctx.fill();
+/* Eine Flaeche mit harten Kanten, ein einziger Ton. Punkte als [x,y]-Paare. */
+function flaeche(punkte, farbe){
+  ctx.fillStyle = farbe;
+  ctx.beginPath();
+  ctx.moveTo(punkte[0][0], punkte[0][1]);
+  for (let i = 1; i < punkte.length; i++) ctx.lineTo(punkte[i][0], punkte[i][1]);
+  ctx.closePath();
+  ctx.fill();
+}
 
-  if (S.imFahrzeug){
+/* Die duenne helle Linie auf der Lichtseite. Offener Zug, kein Umriss:
+   ein voller Umriss wuerde die Figur bei 24 Pixeln zukleben. */
+function lichtLinie(punkte, farbe, breite){
+  ctx.strokeStyle = farbe;
+  ctx.lineWidth = breite;
+  ctx.beginPath();
+  ctx.moveTo(punkte[0][0], punkte[0][1]);
+  for (let i = 1; i < punkte.length; i++) ctx.lineTo(punkte[i][0], punkte[i][1]);
+  ctx.stroke();
+}
+
+/* Der Lampenschein leuchtet in Blickrichtung, nicht rundum. Ein flacher Kegel
+   plus ein kleiner Hof direkt an der Lampe, damit Levi nicht vor schwarzem
+   Nichts steht. Liegt hinter der Figur, sonst waescht das Licht sie aus. */
+function zeichneLampenschein(cx, py, b, h){
+  const nachVorn = P.blick;
+  const lx = cx + nachVorn * b * (S.imFahrzeug ? 0.54 : 0.38);
+  const ly = py + h * (S.imFahrzeug ? 0.39 : 0.14);
+  const R  = K * (LAMPEN[S.lampe].weite * 0.62 + (S.imFahrzeug ? 1.4 : 0));
+
+  // Radialer Abfall innerhalb des Kegels: laengs allein liess die beiden
+  // Schraegen als harte Kanten stehen.
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(lx - nachVorn*2, ly - 3);
+  ctx.lineTo(lx + nachVorn*R, ly - R*0.50);
+  ctx.lineTo(lx + nachVorn*R, ly + R*0.62);
+  ctx.lineTo(lx - nachVorn*2, ly + 3);
+  ctx.closePath();
+  ctx.clip();
+  const kegel = ctx.createRadialGradient(lx, ly, 0, lx, ly, R);
+  kegel.addColorStop(0,    'rgba(255,228,152,.30)');
+  kegel.addColorStop(0.45, 'rgba(255,216,132,.12)');
+  kegel.addColorStop(1,    'rgba(255,210,120,0)');
+  ctx.fillStyle = kegel;
+  ctx.fillRect(lx - R, ly - R, R*2, R*2);
+  ctx.restore();
+
+  const hof = ctx.createRadialGradient(lx, ly, 0, lx, ly, K*1.7);
+  hof.addColorStop(0, 'rgba(255,236,180,.26)');
+  hof.addColorStop(1, 'rgba(255,236,180,0)');
+  ctx.fillStyle = hof;
+  ctx.beginPath(); ctx.arc(lx, ly, K*1.7, 0, 7); ctx.fill();
+}
+
+/* Ein Bein als zwei Flaechen: Hosenbein und Stiefel. Der Fuss wandert beim
+   Laufen, die Huefte bleibt stehen, dadurch entsteht der Schritt. */
+function zeichneBein(hx, fx, y0, y1, farbe){
+  const d = 3.2;
+  flaeche([[hx-d, y0], [hx+d, y0], [hx+fx+d, y1-3.4], [hx+fx-d, y1-3.4]], farbe);
+  flaeche([[hx+fx-d-0.6, y1-3.6], [hx+fx+d, y1-3.6],
+           [hx+fx+d+3.0, y1],     [hx+fx-d-0.6, y1]], LEVI.stiefel);
+}
+
+/* Der Bergmann. Getragen wird die Figur von drei grossen Formen: Helm mit
+   vorspringendem Schirm, breiter Rumpf, dunkle Beine. Alles Weitere ist
+   Beiwerk und darf bei 24 Pixeln ruhig verschwimmen. */
+function zeichneBergmann(b, h, takt, laeuft){
+  const wippe    = laeuft ? (Math.abs(takt) - 0.5) * 1.1 : 0;
+  const schulter = 0.395*h + wippe;
+  const huefte   = 0.665*h + wippe;
+
+  // Rucksack, dunkel und hinten: er macht die Silhouette unverwechselbar
+  flaeche([[-0.30*b, 0.42*h+wippe], [-0.60*b, 0.47*h+wippe],
+           [-0.58*b, 0.66*h+wippe], [-0.28*b, 0.68*h+wippe]], LEVI.sack);
+  flaeche([[-0.59*b, 0.58*h+wippe], [-0.58*b, 0.66*h+wippe],
+           [-0.28*b, 0.68*h+wippe], [-0.29*b, 0.60*h+wippe]], LEVI.sackD);
+  lichtLinie([[-0.30*b, 0.425*h+wippe], [-0.59*b, 0.475*h+wippe]],
+             'rgba(255,238,205,.40)', 1.2);
+
+  // Beine, hinten dunkler als vorn
+  zeichneBein(-0.19*b, -takt*0.19*b, huefte-1, h, LEVI.hoseD);
+  zeichneBein( 0.13*b,  takt*0.19*b, huefte-1, h, LEVI.hose);
+
+  // Rumpf: breite Schulter, schmale Huefte
+  flaeche([[-0.46*b, schulter], [ 0.42*b, schulter],
+           [ 0.35*b, huefte],   [-0.37*b, huefte]], LEVI.jacke);
+  flaeche([[-0.46*b, schulter], [-0.15*b, schulter],
+           [-0.13*b, huefte],   [-0.37*b, huefte]], LEVI.jackeD);
+  flaeche([[ 0.20*b, schulter], [ 0.42*b, schulter],
+           [ 0.35*b, huefte],   [ 0.18*b, huefte]], LEVI.jackeH);
+  lichtLinie([[-0.42*b, schulter+0.9], [0.39*b, schulter+0.9]],
+             'rgba(255,244,220,.45)', 1.3);
+
+  // Guertel, schmal gehalten: ein breites Band schneidet die Figur in zwei
+  flaeche([[-0.34*b, huefte-2.4], [0.32*b, huefte-2.4],
+           [ 0.31*b, huefte-0.2], [-0.33*b, huefte-0.2]], LEVI.guertel);
+  flaeche([[ 0.07*b, huefte-2.2], [0.17*b, huefte-2.2],
+           [ 0.165*b, huefte-0.4], [0.065*b, huefte-0.4]], LEVI.metall);
+
+  // Gesicht: zwei Flaechen Haut und ein Schnauzer als einzige Binnenzeichnung.
+  // Unter dem Schirm bleiben knapp vier Pixel Hoehe, ein Auge kaeme darin
+  // nicht mehr als Auge an, sondern als Schmutzfleck.
+  const kopfO = 0.225*h + wippe, kopfU = 0.425*h + wippe;
+  flaeche([[-0.24*b, kopfO], [0.30*b, kopfO], [0.26*b, kopfU], [-0.20*b, kopfU]], LEVI.haut);
+  flaeche([[-0.24*b, kopfO], [-0.04*b, kopfO], [-0.02*b, kopfU], [-0.20*b, kopfU]], LEVI.hautD);
+
+  // Helm: Kuppel, helle Facette vorn oben, dunkle hinten, kurzer Schirm nach vorn.
+  // Die Kuppel bleibt schmaler als der Rumpf, sonst wird aus dem Helm ein Hut.
+  flaeche([[-0.42*b, 0.250*h+wippe], [-0.40*b, 0.115*h+wippe], [-0.22*b, 0.022*h+wippe],
+           [ 0.10*b, 0.004*h+wippe], [ 0.36*b, 0.080*h+wippe], [ 0.40*b, 0.180*h+wippe],
+           [ 0.38*b, 0.250*h+wippe]], LEVI.helm);
+  flaeche([[-0.22*b, 0.022*h+wippe], [ 0.10*b, 0.004*h+wippe], [0.36*b, 0.080*h+wippe],
+           [ 0.18*b, 0.110*h+wippe], [-0.13*b, 0.090*h+wippe]], LEVI.helmH);
+  flaeche([[-0.42*b, 0.250*h+wippe], [-0.40*b, 0.115*h+wippe], [-0.22*b, 0.022*h+wippe],
+           [-0.15*b, 0.090*h+wippe], [-0.26*b, 0.250*h+wippe]], LEVI.helmD);
+  // Kurzer Schirm. Ragt er weiter vor, wird aus dem Helm ein Schnabel.
+  flaeche([[-0.28*b, 0.222*h+wippe], [ 0.44*b, 0.232*h+wippe],
+           [ 0.42*b, 0.276*h+wippe], [-0.28*b, 0.270*h+wippe]], LEVI.helmD);
+  lichtLinie([[-0.20*b, 0.030*h+wippe], [0.10*b, 0.013*h+wippe], [0.35*b, 0.081*h+wippe]],
+             'rgba(255,248,215,.70)', 1.3);
+  lichtLinie([[-0.24*b, 0.230*h+wippe], [0.42*b, 0.239*h+wippe]],
+             'rgba(255,240,200,.30)', 1.1);
+
+  // Helmlampe, sie sitzt auf der Helmfront und zeigt die Blickrichtung an
+  flaeche([[0.22*b, 0.112*h+wippe], [0.42*b, 0.098*h+wippe],
+           [0.43*b, 0.176*h+wippe], [0.23*b, 0.186*h+wippe]], LEVI.metallD);
+  flaeche([[0.33*b, 0.106*h+wippe], [0.42*b, 0.100*h+wippe],
+           [0.43*b, 0.170*h+wippe], [0.34*b, 0.178*h+wippe]], LEVI.licht);
+
+  // Vorderer Arm: beim Graben haelt er den Pickel, sonst schwingt er mit
+  const sx = 0.26*b, sy = schulter + 2;
+  const handX = P.grabt ? 0.34*b : 0.24*b + takt*0.13*b;
+  const handY = P.grabt ? 0.50*h + wippe : 0.60*h + wippe;
+  flaeche([[sx-3.4, sy-1.4], [sx+3.2, sy-2.2],
+           [handX+2.8, handY], [handX-2.6, handY+1.6]], LEVI.jacke);
+  lichtLinie([[sx+2.6, sy-1.8], [handX+2.2, handY+0.2]], 'rgba(255,244,220,.35)', 1.1);
+
+  if (P.grabt){
+    // Der Pickel schlaegt aus der Schulter nach vorn unten, gefuehrt von P.schwung
+    ctx.save();
+    ctx.translate(handX, handY);
+    ctx.rotate(Math.sin(P.schwung)*0.55 + 0.30);
+    flaeche([[-2.2, 2.6], [0.6, 3.8], [9.8, -8.8], [7.2, -10.6]], LEVI.stiel);
+    lichtLinie([[-1.0, 2.0], [8.4, -9.4]], 'rgba(255,226,178,.45)', 1.1);
+    // Der Kopf ist eine schmale Spitze, keine Flaeche: breiter Stahl frisst
+    // bei dieser Groesse die halbe Figur auf
+    flaeche([[5.2, -13.8], [16.2, -5.4], [7.0, -9.2]], LEVI.metall);
+    lichtLinie([[5.4, -13.4], [15.8, -5.6]], 'rgba(244,247,251,.85)', 1.2);
+    ctx.restore();
+  }
+}
+
+/* Das Bohrfahrzeug: ein kantiger Rumpf, vorn die Kanzel, unten der Bohrkopf.
+   Keine runden Formen, damit es neben dem Gestein als Geraet lesbar bleibt. */
+
+/* Das bestehende Bohrfahrzeug, unveraendert. Der Entwurf aus dem Faecher
+   wurde nicht uebernommen: die Eigenstaendigkeitspruefung sah darin das
+   bekannteste Einzelobjekt des Vorbilds nachgebildet, nicht dessen Machart. */
+function zeichneMeinFahrzeug(px, py, b, h, cx){
+
     // Bohrfahrzeug
     ctx.fillStyle = '#c8791f';
     ctx.beginPath();
@@ -1857,54 +2177,31 @@ function zeichneLevi(){
     ctx.fillStyle = '#26222c';
     ctx.beginPath(); ctx.arc(px + 2, py + h - 1, 5, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(px + b - 2, py + h - 1, 5, 0, 7); ctx.fill();
-  } else {
-    // Beine
-    ctx.fillStyle = '#2d4b7a';
-    const takt = P.amBoden && Math.abs(P.vx) > 0.6 ? Math.sin(performance.now()/70)*3 : 0;
-    ctx.fillRect(px + 3, py + h*0.62, 6, h*0.4 + takt);
-    ctx.fillRect(px + b - 9, py + h*0.62, 6, h*0.4 - takt);
-    // Rumpf
-    ctx.fillStyle = '#3b62a0';
-    ctx.fillRect(px + 1, py + h*0.34, b - 2, h*0.34);
-    // Kopf
-    ctx.fillStyle = '#f0c9a0';
-    ctx.fillRect(px + 4, py + h*0.14, b - 8, h*0.24);
-    // Helm
-    ctx.fillStyle = '#ffcf3d';
-    ctx.beginPath();
-    ctx.ellipse(cx, py + h*0.17, b*0.46, h*0.17, 0, Math.PI, 0);
-    ctx.fill();
-    ctx.fillRect(px + (P.blick > 0 ? 3 : -1), py + h*0.15, b, 3.5);
-    // Lampe
-    ctx.fillStyle = '#fff2b8';
-    ctx.beginPath(); ctx.arc(cx + P.blick*2, py + h*0.13, 2.6, 0, 7); ctx.fill();
-    // Pickel im Schwung
-    if (P.grabt){
-      ctx.save();
-      ctx.translate(cx + P.blick*7, py + h*0.5);
-      ctx.rotate(P.blick * (Math.sin(P.schwung)*0.7 + 0.5));
-      ctx.strokeStyle = '#8a5f36'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(P.blick*13, -9); ctx.stroke();
-      ctx.strokeStyle = '#cfd3dc'; ctx.lineWidth = 3.5;
-      ctx.beginPath(); ctx.moveTo(P.blick*8, -11); ctx.lineTo(P.blick*17, -5); ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  // Lampenschein
-  const g = ctx.createRadialGradient(cx, py + h*0.4, 2, cx, py + h*0.4, K*3.2);
-  g.addColorStop(0, 'rgba(255,225,150,.20)');
-  g.addColorStop(1, 'rgba(255,225,150,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(cx, py + h*0.4, K*3.2, 0, 7); ctx.fill();
 }
 
-/* Kleiner Lichtkreis, darin alles klar zu sehen, danach ein langer
-   schleichender Uebergang ins Dunkel. */
-/* Farbe des Hohlraums auf dieser Tiefe, gleich wie die Fuellung der Zeichenschleife */
-function hohlraumFarbe(y){
-  const [r, g, b] = tiefenFarbe(Math.max(0, y - FUSS));
-  return `rgb(${r*0.13|0},${g*0.12|0},${b*0.11|0})`;
+function zeichneLevi(){
+  const px = P.x*K - kamera.x, py = P.y*K - kamera.y;
+  const b = P.b*K, h = P.h*K;
+  const cx = px + b/2;
+  const laeuft = P.amBoden && Math.abs(P.vx) > 0.6;
+  const takt   = laeuft ? Math.sin(performance.now()/70) : 0;
+
+  zeichneLampenschein(cx, py, b, h);
+
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(cx, py + h + 2, b*0.55, 4, 0, 0, 7); ctx.fill();
+
+  // Alles wird nach rechts gezeichnet und fuer den Blick nach links gespiegelt.
+  // So liegt das Licht immer auf der Seite, in die Levi schaut.
+  if (S.imFahrzeug){
+    zeichneMeinFahrzeug(px, py, b, h, cx);      // rechnet in absoluten Koordinaten
+  } else {
+    ctx.save();
+    ctx.translate(cx, py);
+    ctx.scale(P.blick < 0 ? -1 : 1, 1);
+    zeichneBergmann(b, h, takt, laeuft);
+    ctx.restore();
+  }
 }
 
 function zeichneDunkelheit(){

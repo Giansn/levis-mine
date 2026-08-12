@@ -532,6 +532,20 @@ pruefe('Beide Versionen stimmen ueberein', vCss === vJs, `css ${vCss}, js ${vJs}
 /* ------------------------------ Zeichnen --------------------------------- */
 try { lies('zeichne(); hud()'); } catch (e){ fehler.push('zeichne/hud: ' + e.stack); }
 pruefe('Zeichnen und HUD laufen durch', !fehler.some(f => f.includes('zeichne/hud')));
+
+/* Der Sichtbarkeitstest von zeichneHaus verlaesst die Funktion, wenn die Basis
+   ausserhalb des Bildes liegt. Dadurch blieb ein ReferenceError darin
+   unentdeckt, bis der Browser ihn warf. Hier wird jede Zeichenfunktion einmal
+   erzwungen, mit der Kamera an der Basis. */
+let malFehler = null;
+try {
+  lies('ladeWelt(0)');
+  lies('const z = kameraZiel(); kamera.x = z.x; kamera.y = z.y;');
+  lies('zeichneHimmel(); zeichneHaus(); zeichneLevi(); zeichneDunkelheit();');
+  lies('S.imFahrzeug = true; zeichneLevi(); S.imFahrzeug = false;');
+} catch (e){ malFehler = e.message; }
+pruefe('Jede Zeichenfunktion laeuft an der Basis durch', malFehler === null,
+  malFehler || 'Himmel, Haus, Figur, Fahrzeug, Dunkelheit');
 pruefe('47 Randfaelle statt 16', lies('FAELLE') === 47, lies('FAELLE') + ' Faelle');
 pruefe('Randbilder je Gesteinsart gebaut',
   [lies('ERDE'), lies('STEIN'), lies('HARTSTEIN'), lies('GRANIT')]
