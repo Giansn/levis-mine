@@ -150,6 +150,24 @@ const taste = {};
 const leinwand = document.getElementById('leinwand');
 const ctx = leinwand.getContext('2d');
 
+/* Ein Fehler soll sichtbar sein statt stumm. Ohne das bleibt bei einem
+   Absturz nur ein leeres Fenster stehen und niemand weiss, woran es lag. */
+function zeigeAbsturz(text){
+  let kasten = document.getElementById('absturz');
+  if (!kasten){
+    kasten = document.createElement('div');
+    kasten.id = 'absturz';
+    kasten.addEventListener('click', () => kasten.remove());
+    document.body.appendChild(kasten);
+  }
+  kasten.textContent = text + '\n(antippen zum Schliessen)';
+}
+addEventListener('error', e => {
+  const wo = (e.filename || '').split('/').pop();
+  zeigeAbsturz('Fehler: ' + (e.message || e.error) + (wo ? '  [' + wo + ':' + e.lineno + ']' : ''));
+});
+addEventListener('unhandledrejection', e => zeigeAbsturz('Fehler: ' + e.reason));
+
 /* ========================================================================== */
 /*                              Weltgenerierung                               */
 /* ========================================================================== */
@@ -1382,8 +1400,14 @@ document.getElementById('fensterInhalt').addEventListener('click', e => {
 });
 
 function fenster(titel, html){
-  document.getElementById('fensterTitel').textContent = titel;
-  document.getElementById('fensterInhalt').innerHTML = html;
+  const kopf = document.getElementById('fensterTitel');
+  const inhalt = document.getElementById('fensterInhalt');
+  kopf.textContent = titel;
+  try { inhalt.innerHTML = html; } catch(e){ inhalt.textContent = ''; }
+  // Falls der Browser das Einsetzen von HTML unterbindet, wenigstens den Text zeigen
+  if (html && !inhalt.children.length){
+    inhalt.textContent = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
   schleier.hidden = false;
   for (const k in taste) taste[k] = false;
 }
