@@ -475,6 +475,34 @@ const belohnung = lies('FUNK.map(f => f.gold)');
 pruefe('Die Belohnung waechst mit',
   belohnung.every((g, i) => i === 0 || g > belohnung[i-1]), belohnung.join(', ') + ' Goldstücke');
 
+/* ----------------------------- Erz verkaufen ----------------------------- */
+/* Erz wird beim Abliefern nicht zu Gold, es landet im Lager. Wer das nicht
+   sieht, steht mit vollem Lager und null Goldstuecken da. */
+lies('MATS.forEach(m => S.lager[m] = 0); S.gold = 0');
+lies('S.lager.erz = 10; S.lager.kupfer = 5; S.lager.silber = 2');
+pruefe('Der Lagerwert wird richtig gerechnet',
+  lies('lagerWert()') === 10*lies('MATERIAL.erz.wert') + 5*lies('MATERIAL.kupfer.wert')
+                       + 2*lies('MATERIAL.silber.wert'),
+  lies('lagerWert()') + ' Goldstücke');
+lies('hud()');
+pruefe('Die Statustafel nennt den Lagerwert',
+  lies(`document.getElementById('lagerKopf').textContent`).includes('Goldstücke wert'),
+  lies(`document.getElementById('lagerKopf').textContent`));
+lies('zeigeLaden()');
+pruefe('Der Laden bietet Alles verkaufen an',
+  lies(`document.getElementById('fensterInhalt').innerHTML.includes('Alles verkaufen')`) === true);
+const wertVorher = lies('lagerWert()');
+lies('tueEs("allesVerkaufen")');
+pruefe('Alles verkaufen leert das Lager', lies('lagerWert()') === 0);
+pruefe('Und schreibt den vollen Wert gut', lies('S.gold') === wertVorher,
+  wertVorher + ' Goldstücke');
+lies('fensterZu()');
+lies('S.gold = 0; MATS.forEach(m => S.lager[m] = 0)');
+lies('zeigeLaden()');
+pruefe('Bei leerem Lager kein Knopf',
+  lies(`document.getElementById('fensterInhalt').innerHTML.includes('Alles verkaufen')`) === false);
+lies('fensterZu()');
+
 /* -------------------------------- Leiter --------------------------------- */
 /* An einer Leiter mit festem Boden darunter konnte Levi weder landen noch
    weitergraben: das Graben war mit !P.klettert gesperrt und die Schwerkraft

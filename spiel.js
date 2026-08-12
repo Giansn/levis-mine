@@ -149,6 +149,10 @@ function tueEs(tat){
   else if (tat === 'hilfe') zeigeHilfe();
   else if (tat === 'neu') zeigeOptionen(true);      // erst nachfragen
   else if (tat === 'neuJa') neuAnfangen();
+  else if (tat === 'allesVerkaufen'){
+    for (const m of MATS) if (S.lager[m] > 0) verkaufe(m);
+    zeigeLaden();
+  }
 }
 
 /* --------------------------------- Laden --------------------------------- */
@@ -502,6 +506,7 @@ function bauLoeschen(x, y){
 /*                                  Fracht                                    */
 /* ========================================================================== */
 
+const lagerWert = () => MATS.reduce((s,m) => s + S.lager[m]*MATERIAL[m].wert, 0);
 const kapazitaet = () => 25 + (S.wagen ? 25 : 0) + (S.bohrer ? 35 : 0);
 const frachtMasse = () => MATS.reduce((s,m) => s + S.fracht[m]*MATERIAL[m].masse, 0);
 const frachtStueck = () => MATS.reduce((s,m) => s + S.fracht[m], 0);
@@ -535,6 +540,10 @@ function abliefern(){
   if (goldstuecke){ S.gold += goldstuecke; S.verdient += goldstuecke; }
   klang('muenze');
   melde('Abgeliefert: ' + teile.join(', ') + (goldstuecke ? '  →  +' + goldstuecke + ' Goldstücke' : ''), 'gut');
+  // Erz wird nicht von selbst zu Gold. Wer das nicht weiss, steht mit vollem
+  // Lager und null Goldstuecken da und versteht nicht, warum nichts geht.
+  const wert = lagerWert();
+  if (wert > 0) melde('Im Lager liegt Erz für ' + wert + ' Goldstücke. Im Laden mit K verkaufen', 'gold', 'verkaufen');
   pruefeSieg();
 }
 
@@ -2436,6 +2445,11 @@ function hud(){
     .map(m => `<li><i style="background:${MATERIAL[m].farbe}"></i><span>${MATERIAL[m].name}</span><b>${S.fracht[m]}</b></li>`)
     .join('');
 
+  const lk = document.getElementById('lagerKopf');
+  if (lk){
+    const wert = lagerWert();
+    lk.textContent = wert > 0 ? 'Lager im Haus · ' + zahl(wert) + ' Goldstücke wert' : 'Lager im Haus';
+  }
   document.getElementById('lager').innerHTML = MATS
     .filter(m => S.lager[m] > 0)
     .map(m => `<li><i style="background:${MATERIAL[m].farbe}"></i><span>${MATERIAL[m].name}</span><b>${S.lager[m]}</b></li>`)
@@ -2551,7 +2565,16 @@ function zeigeLaden(){
     </div>`;
   }).join('');
 
-  const verkauf = MATS.filter(m => S.lager[m] > 0).map(m => `
+  const gesamt = lagerWert();
+  const allesKnopf = gesamt > 0
+    ? `<div class="ware" style="border-color:var(--gold)">
+         <div class="kopf2"><b>Alles verkaufen</b><span style="color:var(--gold)">${zahl(gesamt)} Goldstücke</span></div>
+         <p>Macht das ganze Lager auf einmal zu Goldstücken. Was du für Werkzeuge brauchst,
+         kaufst du danach mit dem Gold.</p>
+         <button class="kauf" data-tat="allesVerkaufen">Alles verkaufen</button>
+       </div>`
+    : '';
+  const verkauf = allesKnopf + MATS.filter(m => S.lager[m] > 0).map(m => `
     <div class="ware">
       <div class="kopf2"><b>${MATERIAL[m].name}</b><span style="color:var(--gold)">${S.lager[m]} Stück</span></div>
       <p>${MATERIAL[m].wert} Goldstücke pro Einheit, macht ${S.lager[m]*MATERIAL[m].wert} Goldstücke.</p>
