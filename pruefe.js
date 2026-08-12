@@ -204,12 +204,20 @@ pruefe('Gastasche traegt die Maske des Gesteins',
   lies('tarnung(FUSS + 10)') === lies('ERDE') && lies('tarnung(FUSS + 250)') === lies('GRANIT'));
 const lebenVorher = lies('S.leben');
 lies('boden[idx(Math.floor(P.x + P.b/2), Math.floor(P.y + P.h + 0.04))] = GAS');
+/* Auf den Einbruch selbst pruefen, nicht auf den Endwert: Levi kann zwischendurch
+   ohnmaechtig werden oder an der Basis heilen, dann steigt das Leben wieder und
+   der Vergleich vorher gegen nachher taeuscht. */
+lies('S.leben = 100');
 lies('taste.ab = true');
-try { for (let i = 0; i < 250; i++) lies('aktualisiere(1/60)'); }
-catch (e){ fehler.push('bei der Gastasche: ' + e.stack); }
+let tatWeh = false;
+try {
+  for (let i = 0; i < 250 && !tatWeh; i++){
+    lies('aktualisiere(1/60)');
+    if (lies('S.leben') < 100) tatWeh = true;
+  }
+} catch (e){ fehler.push('bei der Gastasche: ' + e.stack); }
 lies('taste.ab = false');
-pruefe('Gastasche tut weh', lies('S.leben') < lebenVorher,
-  lebenVorher + ' auf ' + Math.round(lies('S.leben')));
+pruefe('Gastasche tut weh', tatWeh, 'Leben faellt unter 100');
 lies('S.leben = 100');
 
 /* ----------------------------- Fracht nach Masse ------------------------- */
@@ -350,6 +358,9 @@ const treppe = lies(`(() => {
 })()`);
 pruefe('Stufe steht vor dem Graben', treppe.stufeVorher !== 0 && treppe.wandVorher !== 0);
 
+/* Einstuerze fuer diesen Abschnitt stilllegen: sonst kann die eben gesetzte
+   Probekachel zu Geroell werden und die Pruefung flackert. */
+lies('var echtEinsturz = pruefeEinsturz; pruefeEinsturz = function(){};');
 lies('taste.auf = true; taste.rechts = true');
 const zielGefunden = lies('diagonalZiel() !== null');
 pruefe('Diagonales Ziel wird erkannt', zielGefunden === true, treppe.ziel);
@@ -359,6 +370,7 @@ lies('taste.auf = false; taste.rechts = false');
 pruefe('Levi bricht die Kachel schraeg ueber sich',
   lies(`boden[idx(${treppe.x}+1, ${treppe.y}-1)]`) === 0,
   'Kachel ' + lies(`boden[idx(${treppe.x}+1, ${treppe.y}-1)]`));
+lies('pruefeEinsturz = echtEinsturz;');
 pruefe('Die Wand darunter bleibt als Stufe stehen',
   lies(`boden[idx(${treppe.x}+1, ${treppe.y})]`) !== 0,
   'Kachel ' + lies(`boden[idx(${treppe.x}+1, ${treppe.y})]`));

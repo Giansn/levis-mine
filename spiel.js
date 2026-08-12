@@ -15,7 +15,7 @@ const HOEHE    = FUSS + TIEFEN;
 const METER    = 2;                  // Meter pro Kachel
 const FRANKEN  = 25;                 // Franken pro Goldstueck
 const ZIEL     = 5000;               // Goldstuecke fuer den Sieg
-const BASIS_X  = 5;                  // Spalte des Hauses
+const BASIS_X  = 9;                  // Spalte des Hauses
 const STUETZ_R = 4;                  // Reichweite eines Stuetzbalkens
 
 /* ------------------------------ Gesteinsarten ---------------------------- */
@@ -164,8 +164,10 @@ const LADEN = [
   {id:'lampe', art:'lampe', stufe:1, name:'Lampe', text:''},
   {id:'dynamit', art:'stapel', anzahl:1, name:'Dynamit', stufe:1,
    text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:10}},
-  {id:'balken', art:'stapel', anzahl:20, name:'Stützbalken ×20', stufe:1,
-   text:'Stützt den Stollen gegen Einsturz und dient als Leiter nach oben.', preis:{gold:16, erz:4}},
+  {id:'balken', art:'stapel', anzahl:20, name:'Leitern und Stützbalken ×20', stufe:1,
+   text:'Deine Leiter nach oben: an gesetzten Balken kletterst du mit ▲ und ▼. '
+      + 'Zugleich stützen sie den Stollen gegen Einsturz. Setzen mit der Leertaste.',
+   preis:{gold:16, erz:4}},
   {id:'seilwinde', art:'stapel', anzahl:2, name:'Seilwinde ×2', stufe:1,
    text:'Zieht dich samt Ladung sofort zur Basis hoch, wenn du unten feststeckst.', preis:{gold:14}},
   {id:'schienen', art:'stapel', anzahl:20, name:'Schienen ×20', stufe:1,
@@ -1517,55 +1519,281 @@ function zeichneHimmel(){
   ctx.closePath(); ctx.fill();
 }
 
+/* --------------------------- Basis am Bergfuss ---------------------------- */
+/* Enge Palette, je Flaeche genau ein Ton, kein Verlauf innerhalb einer Flaeche.
+   Das Licht faellt von links, darum liegen die duennen hellen Linien auf den
+   linken und oberen Kanten. */
+const BASIS_TON = {
+  fels:'#57545f',   felsHell:'#6e6b78',   felsDunkel:'#3c3945',
+  stahl:'#4d5a68',  stahlHell:'#8394a3',  stahlDunkel:'#333d49',
+  holz:'#8a5f36',   holzHell:'#b17d47',   holzDunkel:'#5d3f22',
+  blech:'#3f6270',  blechHell:'#5c8b9d',
+  rost:'#c8722c',
+  glut:'#8a5a22',   glutHell:'#c9903a',   licht:'#ffd479',
+  halde:'#6f6555',  haldeHell:'#8c8069',  haldeDunkel:'#544c40',
+  kante:'rgba(255,238,205,.55)',
+  schild:'#241d2c', schildHell:'#332a3e',
+  tief:'#1a1410',
+};
+
+/* Das Bergwerk auf der Terrasse: Foerderturm ueber dem beleuchteten Mundloch,
+   Maschinenhaus an der Flanke, Verladerampe mit Halde daneben. Alles in
+   Weltkoordinaten, damit es mit der Kamera mitwandert.
+   Masse: rund 4,8 Kacheln breit, 3,7 Kacheln hoch. Levi ist 24 x 31 Pixel gross
+   und steht beim Start genau in der Oeffnung. */
 function zeichneHaus(){
-  const px = (BASIS_X - 1.5)*K - kamera.x;
-  const py = (basisY() - 3.1)*K - kamera.y;
-  const b = 4*K, h = 3.1*K;
+  const bod = basisY()*K - kamera.y;            // Bodenlinie der Terrasse
+  const pc  = (BASIS_X + 0.35)*K - kamera.x;    // Mitte des Mundlochs, dort steht Levi
+  // Ausserhalb des Bildes gibt es nichts zu zeichnen
+  if (pc < -300 || pc > W + 300 || bod < -420 || bod > H + 80) return;
 
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
-  ctx.fillRect(px + 6, py + h - 6, b, 8);
+  const t = performance.now()/1000;
+  const F = BASIS_TON;
 
-  // Wand
-  ctx.fillStyle = '#7d5334';
-  ctx.fillRect(px, py + h*0.42, b, h*0.58);
-  ctx.fillStyle = 'rgba(0,0,0,.16)';
-  for (let i = 1; i < 5; i++) ctx.fillRect(px, py + h*0.42 + i*h*0.116, b, 2);
+  /* Eine Flaeche aus Eckpunkten, ein Ton, harte Kanten */
+  const fl = (farbe, punkte) => {
+    ctx.fillStyle = farbe;
+    ctx.beginPath();
+    ctx.moveTo(punkte[0][0], punkte[0][1]);
+    for (let i = 1; i < punkte.length; i++) ctx.lineTo(punkte[i][0], punkte[i][1]);
+    ctx.closePath();
+    ctx.fill();
+  };
+  /* Ein Linienzug, meist die helle Kante auf der Lichtseite */
+  const li = (farbe, dicke, punkte) => {
+    ctx.strokeStyle = farbe;
+    ctx.lineWidth = dicke;
+    ctx.beginPath();
+    ctx.moveTo(punkte[0][0], punkte[0][1]);
+    for (let i = 1; i < punkte.length; i++) ctx.lineTo(punkte[i][0], punkte[i][1]);
+    ctx.stroke();
+  };
+  const kasten = (farbe, x0, y0, x1, y1) => fl(farbe, [[x0,y0],[x1,y0],[x1,y1],[x0,y1]]);
+  /* Halbe Breite des Foerderturms auf Hoehe dy ueber dem Boden */
+  const bein = dy => 44 - 28*dy/104;
+  /* Hoehe der Verladerampe an dieser Stelle */
+  const rampe = x => bod - 1 + (x - (pc-34)) * 0.5;
 
-  // Dach
-  ctx.fillStyle = '#a83b32';
-  ctx.beginPath();
-  ctx.moveTo(px - 9, py + h*0.44);
-  ctx.lineTo(px + b/2, py);
-  ctx.lineTo(px + b + 9, py + h*0.44);
-  ctx.closePath(); ctx.fill();
+  /* ---------------------------- Bodenschatten ---------------------------- */
+  ctx.fillStyle = 'rgba(0,0,0,.26)';
+  ctx.fillRect(pc - 114, bod, 236, 6);
 
-  // Kamin
-  ctx.fillStyle = '#5c4028';
-  ctx.fillRect(px + b*0.72, py + h*0.06, 13, h*0.3);
+  /* ------------------- Verladerampe und Halde, links --------------------- */
+  // Stuetzen zuerst, die Halde deckt ihre Fuesse spaeter zu
+  for (const sx of [pc-50, pc-70, pc-90]){
+    kasten(F.holzDunkel, sx-3.5, rampe(sx)+3, sx+3.5, bod);
+    li(F.kante, 1, [[sx-3.5, rampe(sx)+4],[sx-3.5, bod]]);
+  }
+  // Rampendeck, darueber kippt die Lore das Taube auf die Halde
+  fl(F.holz, [[pc-34,bod-1],[pc-96,bod-32],[pc-96,bod-26],[pc-34,bod+5]]);
+  li(F.kante, 1.4, [[pc-34,bod-0.4],[pc-96,bod-31.4]]);
+  li(F.stahlHell, 1.4, [[pc-36,bod-3],[pc-94,bod-32]]);
 
-  // Tuer und Fenster
-  ctx.fillStyle = '#3a2416';
-  ctx.fillRect(px + b*0.42, py + h*0.6, b*0.2, h*0.4);
-  ctx.fillStyle = '#ffd772';
-  ctx.fillRect(px + b*0.12, py + h*0.55, b*0.17, b*0.14);
-  ctx.fillRect(px + b*0.72, py + h*0.55, b*0.17, b*0.14);
-
-  // Goldhaufen davor
-  ctx.fillStyle = '#ffc63d';
-  for (let i = 0; i < 6; i++){
-    const gx = px + b + 12 + (i%3)*9;
-    const gy = py + h - 6 - Math.floor(i/3)*7;
-    ctx.beginPath(); ctx.arc(gx, gy, 4.5, 0, 7); ctx.fill();
+  // Halde: zwei Flaechen an einer Gratlinie, links Licht, rechts Schatten
+  fl(F.haldeDunkel, [[pc-64,bod],[pc-52,bod-9],[pc-38,bod]]);
+  fl(F.haldeHell,   [[pc-114,bod],[pc-94,bod-18],[pc-84,bod]]);
+  fl(F.halde,       [[pc-84,bod],[pc-94,bod-18],[pc-56,bod]]);
+  li(F.kante, 1.3, [[pc-113,bod],[pc-94,bod-17]]);
+  // Ausgekipptes Erz, die Lage haengt am hash und bleibt darum stehen
+  for (let i = 0; i < 11; i++){
+    const u = (i + 0.5)/11;
+    const hoehe = (u < 0.4 ? u/0.4 : (1-u)/0.6) * 14;
+    ctx.fillStyle = [MATERIAL.erz.farbe, MATERIAL.kupfer.farbe, MATERIAL.gold.farbe][i % 3];
+    ctx.fillRect(pc - 112 + u*54, bod - 2.5 - hash(i*13+3, 7)*hoehe, 3, 3);
   }
 
-  // Schild
-  ctx.fillStyle = 'rgba(10,8,14,.75)';
-  ctx.fillRect(px + b/2 - 46, py - 26, 92, 21);
+  // Lore auf der Rampe, sie steht schraeg wie das Deck
+  ctx.save();
+  ctx.translate(pc-54, rampe(pc-54));
+  ctx.rotate(0.464);
+  fl(F.stahl,       [[-11,-15],[11,-15],[9,-3],[-9,-3]]);
+  fl(F.stahlHell,   [[-11,-15],[-6,-15],[-5,-3],[-9,-3]]);
+  fl(F.stahlDunkel, [[-9,-3],[9,-3],[8,-1],[-8,-1]]);
+  li(F.kante, 1.4, [[-11,-14.4],[11,-14.4]]);
+  ctx.fillStyle = MATERIAL.kupfer.farbe; ctx.fillRect(-7,-18,4,3);
+  ctx.fillStyle = MATERIAL.erz.farbe;    ctx.fillRect(-2,-19,4,4);
+  ctx.fillStyle = MATERIAL.gold.farbe;   ctx.fillRect(3,-18,3,3);
+  ctx.fillStyle = F.stahlDunkel;
+  ctx.beginPath(); ctx.arc(-6,0,3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(6,0,3,0,7); ctx.fill();
+  ctx.restore();
+
+  /* ------------------- Maschinenhaus, rechts am Hang --------------------- */
+  const mx0 = pc+50, mx1 = pc+120, my0 = bod-52, my1 = bod-60;
+  const wandY = x => my0 + (x - mx0) * (my1 - my0)/(mx1 - mx0);
+  fl(F.holz,       [[mx0,my0],[mx1,my1],[mx1,bod],[mx0,bod]]);
+  fl(F.holzDunkel, [[mx1-18,wandY(mx1-18)],[mx1,my1],[mx1,bod],[mx1-18,bod]]);
+  li(F.kante, 1.4, [[mx0+1,my0+2],[mx0+1,bod]]);
+  ctx.fillStyle = 'rgba(0,0,0,.16)';
+  ctx.fillRect(mx0+23, my0+4, 1.5, 48);
+  ctx.fillRect(mx0+46, my0+2, 1.5, 50);
+  // Sockel
+  fl(F.felsDunkel, [[mx0-3,bod-9],[mx1+3,bod-9],[mx1+3,bod],[mx0-3,bod]]);
+  li(F.kante, 1, [[mx0-3,bod-8.4],[mx1+3,bod-8.4]]);
+  // Blechdach mit Ueberstand, Deckflaeche heller als die Stirnflaeche
+  fl(F.blech,     [[mx0-7,wandY(mx0-7)],[mx1+7,wandY(mx1+7)],[mx1+7,wandY(mx1+7)-6],[mx0-7,wandY(mx0-7)-6]]);
+  fl(F.blechHell, [[mx0-7,wandY(mx0-7)-6],[mx1+7,wandY(mx1+7)-6],[mx1+7,wandY(mx1+7)-9],[mx0-7,wandY(mx0-7)-9]]);
+  li(F.kante, 1.4, [[mx0-7,wandY(mx0-7)-8.3],[mx1+7,wandY(mx1+7)-8.3]]);
+
+  // Beleuchtetes Maschinenfenster, dahinter laeuft die Foerdermaschine
+  const fx = mx0+14, fy = bod-44, fb = 40, fh = 26;
+  kasten(F.holzDunkel, fx-3, fy-3, fx+fb+3, fy+fh+3);
+  kasten(F.glut, fx, fy, fx+fb, fy+fh);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(fx, fy, fb, fh); ctx.clip();
+  // Fundamentbank, Seiltrommel rechts, Schwungrad links
+  kasten(F.stahlDunkel, fx+2, fy+20, fx+fb-2, fy+fh);
+  kasten(F.stahlDunkel, fx+22, fy+7, fx+36, fy+21);
+  li(F.glutHell, 1.4, [[fx+24, fy+10],[fx+34, fy+10]]);
+  li(F.glutHell, 1.4, [[fx+24, fy+14],[fx+34, fy+14]]);
+  ctx.fillStyle = F.stahlDunkel;
+  ctx.beginPath(); ctx.arc(fx+12, fy+13, 9, 0, 7); ctx.fill();
+  ctx.strokeStyle = F.glutHell; ctx.lineWidth = 2;
+  for (let i = 0; i < 3; i++){
+    const a = t*0.55 + i*2.094;
+    ctx.beginPath();
+    ctx.moveTo(fx+12 + Math.cos(a)*2, fy+13 + Math.sin(a)*2);
+    ctx.lineTo(fx+12 + Math.cos(a)*8, fy+13 + Math.sin(a)*8);
+    ctx.stroke();
+  }
+  ctx.fillStyle = F.licht;
+  ctx.beginPath(); ctx.arc(fx+12, fy+13, 2.5, 0, 7); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = F.holzDunkel;
+  ctx.fillRect(fx + 19, fy, 2.5, fh);
+  li(F.kante, 1.2, [[fx, fy+0.8],[fx+fb, fy+0.8]]);
+  // Lichtschein aus dem Fenster auf Wand und Vorplatz
+  fl('rgba(255,199,110,.10)', [[fx,fy+fh],[fx+fb,fy+fh],[fx+fb+10,bod+6],[fx-10,bod+6]]);
+
+  // Lueftungsrohr und ein bisschen Dampf
+  const lx = mx1-24, ly = wandY(lx) - 9;
+  kasten(F.stahl,       lx-4, ly-18, lx+4, ly+2);
+  kasten(F.stahlHell,   lx-4, ly-18, lx-1.5, ly+2);
+  kasten(F.stahlDunkel, lx-7, ly-22, lx+7, ly-18);
+  for (let i = 0; i < 3; i++){
+    const u = (t*0.32 + i/3) % 1;
+    ctx.globalAlpha = 0.24*(1-u);
+    ctx.fillStyle = '#dfe7ee';
+    ctx.beginPath(); ctx.arc(lx + u*12, ly - 25 - u*26, 3 + u*6, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Kisten am Weg, damit der Vorplatz bewohnt wirkt
+  fl(F.holz,     [[pc+56,bod-13],[pc+72,bod-13],[pc+72,bod],[pc+56,bod]]);
+  fl(F.holzHell, [[pc+56,bod-13],[pc+60,bod-13],[pc+60,bod],[pc+56,bod]]);
+  li(F.kante, 1.2, [[pc+56,bod-12.4],[pc+72,bod-12.4]]);
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.fillRect(pc+58, bod-8, 12, 1.5);
+
+  /* -------------------- Portalblock mit dem Mundloch --------------------- */
+  const kx0 = pc-40, kx1 = pc+40, ky = bod-58;
+  fl(F.fels,       [[kx0,ky],[kx1,ky],[kx1,bod],[kx0,bod]]);
+  fl(F.felsHell,   [[kx0,ky],[kx0+11,ky],[kx0+11,bod],[kx0,bod]]);
+  fl(F.felsDunkel, [[kx1-9,ky],[kx1,ky],[kx1,bod],[kx1-9,bod]]);
+  ctx.fillStyle = 'rgba(0,0,0,.16)';
+  ctx.fillRect(kx0, bod-40, 80, 1.5);
+  ctx.fillRect(kx0, bod-21, 80, 1.5);
+  // Kranz oben
+  fl(F.felsHell, [[kx0-5,ky-7],[kx1+5,ky-7],[kx1+5,ky],[kx0-5,ky]]);
+  li(F.kante, 1.4, [[kx0-5,ky-6.2],[kx1+5,ky-6.2]]);
+
+  // Rahmen aus schweren Balken
+  fl(F.holz, [[pc-31,bod],[pc-23,bod],[pc-23,bod-30],[pc-31,bod-34]]);
+  fl(F.holz, [[pc+23,bod],[pc+31,bod],[pc+31,bod-34],[pc+23,bod-30]]);
+  fl(F.holzHell, [[pc-31,bod-34],[pc-15,bod-47],[pc+15,bod-47],[pc+31,bod-34],
+                  [pc+23,bod-30],[pc+15,bod-40],[pc-15,bod-40],[pc-23,bod-30]]);
+  li(F.kante, 1.4, [[pc-31,bod-33.4],[pc-15,bod-46.4],[pc+15,bod-46.4],[pc+31,bod-33.4]]);
+
+  // Die Oeffnung selbst, kantig statt rund
+  fl(F.tief, [[pc-23,bod],[pc-23,bod-30],[pc-15,bod-40],[pc+15,bod-40],[pc+23,bod-30],[pc+23,bod]]);
+  // Licht aus dem Stollen, drei Stufen, jede eine eigene Flaeche
+  fl('#3d2a16',  [[pc-22,bod],[pc+22,bod],[pc+14,bod-19],[pc-14,bod-19]]);
+  fl(F.glut,     [[pc-20,bod],[pc+20,bod],[pc+12,bod-12],[pc-12,bod-12]]);
+  fl(F.glutHell, [[pc-16,bod],[pc+16,bod],[pc+9,bod-6],[pc-9,bod-6]]);
+  // Grubenlampe an der Stollenwand
+  ctx.fillStyle = 'rgba(255,212,120,.18)';
+  ctx.beginPath(); ctx.arc(pc-17.5, bod-25.5, 7, 0, 7); ctx.fill();
+  ctx.fillStyle = F.licht;
+  ctx.fillRect(pc-19, bod-27, 3, 3);
+  // Lichtteppich auf dem Vorplatz
+  fl('rgba(255,199,110,.12)', [[pc-21,bod],[pc+21,bod],[pc+29,bod+7],[pc-29,bod+7]]);
+
+  // Aussenlampe ueber dem Eingang
+  kasten(F.stahlDunkel, pc-32, bod-53, pc-24, bod-49);
+  ctx.fillStyle = F.licht;
+  ctx.fillRect(pc-31, bod-49, 6, 2.5);
+  fl('rgba(255,212,120,.08)', [[pc-31,bod-46],[pc-25,bod-46],[pc-17,bod],[pc-41,bod]]);
+
+  // Seilfuehrung ueber dem Sturz, hier faehrt der Korb in den Schacht
+  kasten(F.stahlDunkel, pc-13, bod-57, pc+13, bod-47);
+  kasten(F.stahl,       pc-13, bod-57, pc+13, bod-54);
+  li(F.kante, 1.2, [[pc-13,bod-56.4],[pc+13,bod-56.4]]);
+
+  /* ------------------ Foerderturm ueber dem Mundloch --------------------- */
+  fl(F.stahl,       [[pc-48,bod],[pc-40,bod],[pc-13,bod-104],[pc-19,bod-104]]);
+  fl(F.stahlDunkel, [[pc+40,bod],[pc+48,bod],[pc+19,bod-104],[pc+13,bod-104]]);
+  li(F.kante, 1.4, [[pc-46.6,bod],[pc-17.6,bod-104]]);
+  // Riegel, das unterste Feld bleibt offen, damit der Eingang frei ist
+  for (const dy of [34, 62, 90]){
+    const bb = bein(dy) + 3;
+    fl(F.stahlDunkel, [[pc-bb,bod-dy],[pc+bb,bod-dy],[pc+bb,bod-dy+4],[pc-bb,bod-dy+4]]);
+    li(F.kante, 1, [[pc-bb,bod-dy+0.7],[pc+bb,bod-dy+0.7]]);
+  }
+  // Andreaskreuze in den oberen Feldern
+  ctx.strokeStyle = F.stahlDunkel; ctx.lineWidth = 2;
+  for (const [a1, a2] of [[34,62],[62,90],[90,104]]){
+    ctx.beginPath();
+    ctx.moveTo(pc-bein(a1), bod-a1); ctx.lineTo(pc+bein(a2), bod-a2);
+    ctx.moveTo(pc+bein(a1), bod-a1); ctx.lineTo(pc-bein(a2), bod-a2);
+    ctx.stroke();
+  }
+  // Kopfplattform und Lagerboecke
+  fl(F.stahl, [[pc-23,bod-104],[pc+23,bod-104],[pc+23,bod-97],[pc-23,bod-97]]);
+  li(F.kante, 1.4, [[pc-23,bod-103.3],[pc+23,bod-103.3]]);
+  fl(F.stahl, [[pc-17,bod-104],[pc-11,bod-104],[pc-11,bod-118],[pc-17,bod-118]]);
+  fl(F.stahl, [[pc+11,bod-104],[pc+17,bod-104],[pc+17,bod-118],[pc+11,bod-118]]);
+
+  // Seilscheibe, dreht sich langsam
+  const wy = bod-116, dreh = t*0.55;
+  ctx.strokeStyle = F.stahlHell; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(pc, wy, 11, 0, 7); ctx.stroke();
+  ctx.fillStyle = F.stahl;
+  ctx.beginPath(); ctx.arc(pc, wy, 8, 0, 7); ctx.fill();
+  ctx.strokeStyle = F.stahlDunkel; ctx.lineWidth = 2.5;
+  for (let i = 0; i < 4; i++){
+    const a = dreh + i*Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(pc + Math.cos(a)*2, wy + Math.sin(a)*2);
+    ctx.lineTo(pc + Math.cos(a)*8, wy + Math.sin(a)*8);
+    ctx.stroke();
+  }
+  ctx.fillStyle = F.rost;
+  ctx.beginPath(); ctx.arc(pc, wy, 3, 0, 7); ctx.fill();
+
+  // Foerderseil in den Schacht, Antriebsseil zum Maschinenhaus
+  li('#2b333d', 1.8, [[pc-6, wy+9],[pc-6, bod-57]]);
+  li('#2b333d', 1.8, [[pc+7, wy+8],[mx0+16, wandY(mx0+16)-9]]);
+
+  /* ------------ Schild, auf den Turm geschraubt statt schwebend ---------- */
+  fl(F.schild,     [[pc-28,bod-80],[pc+28,bod-80],[pc+28,bod-64],[pc-28,bod-64]]);
+  fl(F.schildHell, [[pc-28,bod-80],[pc+28,bod-80],[pc+28,bod-77],[pc-28,bod-77]]);
+  ctx.strokeStyle = F.rost; ctx.lineWidth = 1.6;
+  ctx.strokeRect(pc-27.2, bod-79.2, 54.4, 14.4);
   ctx.fillStyle = '#ffc63d';
   ctx.font = 'bold 13px "Trebuchet MS", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('BASIS', px + b/2, py - 11);
+  ctx.fillText('BASIS', pc, bod-67.5);
   ctx.textAlign = 'left';
+  ctx.fillStyle = F.stahlHell;
+  for (const [nx, ny] of [[pc-24.5,bod-74],[pc+24.5,bod-74],[pc-24.5,bod-68],[pc+24.5,bod-68]]){
+    ctx.beginPath(); ctx.arc(nx, ny, 1.3, 0, 7); ctx.fill();
+  }
+
+  /* ---------------- Gleis vom Mundloch auf die Rampe -------------------- */
+  ctx.fillStyle = F.holzDunkel;
+  for (let sx = pc-44; sx <= pc-12; sx += 7) ctx.fillRect(sx, bod+1, 5, 2);
+  li(F.stahlHell, 1.3, [[pc-46, bod+0.6],[pc-8, bod+0.6]]);
+  li(F.stahlHell, 1.3, [[pc-46, bod+3.4],[pc-8, bod+3.4]]);
 }
 
 function zeichneBau(x, y, px, py){
@@ -1921,7 +2149,7 @@ function hud(){
 
   document.getElementById('vorrat').innerHTML = [
     ['Dynamit', S.dynamit, 'F'],
-    ['Balken', S.balken, '␣'],
+    ['Leitern', S.balken, '␣'],
     ['Schienen', S.schienen, 'R'],
     ['Seilwinde', S.seilwinde, 'L'],
     ['Lampe', (S.lampe+1) + '/' + LAMPEN.length, 'K'],

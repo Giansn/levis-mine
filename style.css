@@ -30,70 +30,153 @@ html,body{
 
 #leinwand{position:fixed;inset:0;display:block;image-rendering:auto}
 
+/* ==========================================================================
+   Bedienfelder: kantige Flaechen mit harten Kanten, je Flaeche ein eigener
+   Ton. Innerhalb einer Flaeche kein Verlauf. Die Plastizitaet kommt allein
+   aus einer duennen hellen Linie auf der Lichtseite und der dunklen
+   Gegenkante, so wie beim Gestein auf der Leinwand.
+   ========================================================================== */
+:root{
+  --platte:#1b1726;       /* Grundflaeche eines Bedienfelds */
+  --platte-hell:#272031;  /* erhoehte Flaeche: Knopf, Karte, Streifen */
+  --platte-tief:#0c0a12;  /* vertiefte Flaeche: Rille, Tastenzeichen, Zeile */
+  --kante:#08060d;        /* harter Aussenrahmen, fast schwarz */
+  --licht:rgba(255,240,214,.20);  /* Linie auf der Lichtseite, oben */
+  --tiefe:rgba(0,0,0,.55);        /* Gegenkante, unten */
+  --takt:9px;             /* Breite eines Balkensegments */
+  --steg:3px;             /* Luecke zwischen zwei Segmenten */
+}
+
 /* ---------------- Kopfleiste ---------------- */
+/* Feste Hoehe, damit #status und #meldungen darunter berechenbar sitzen und
+   ein langer Bergname die Leiste nicht wachsen laesst. */
 #kopf{
   position:fixed;top:0;left:0;right:0;
-  display:flex;align-items:stretch;gap:2px;
-  padding:6px;
-  background:linear-gradient(180deg,rgba(13,11,18,.94),rgba(13,11,18,.55));
-  border-bottom:1px solid var(--rand);
+  display:flex;align-items:stretch;gap:3px;
+  height:58px;padding:4px;
+  background:var(--platte);
+  border-bottom:3px solid var(--kante);
+  box-shadow:inset 0 2px 0 var(--licht);
   z-index:10;
 }
 .feld{
-  display:flex;flex-direction:column;justify-content:center;
-  min-width:74px;padding:3px 11px;
-  border-right:1px solid rgba(255,255,255,.07);
+  display:flex;flex-direction:column;justify-content:center;gap:2px;
+  min-width:88px;padding:4px 10px;
+  background:var(--platte-tief);
+  border:2px solid var(--kante);
+  box-shadow:inset 0 2px 0 rgba(255,240,214,.07);
+  white-space:nowrap;overflow:hidden;
 }
-.feld b{font-size:17px;letter-spacing:.3px;line-height:1.1}
-.feld span{font-size:10px;text-transform:uppercase;letter-spacing:1.1px;color:var(--matt)}
+/* Wert oben, gross und hell. Beschriftung darunter, klein und matt, durch
+   eine Trennlinie abgesetzt: das Kind liest zuerst die Zahl. */
+.feld b{
+  font-size:19px;line-height:1;letter-spacing:.2px;
+  font-variant-numeric:tabular-nums;
+}
+.feld span{
+  padding-top:3px;
+  border-top:1px solid rgba(255,255,255,.10);
+  font-size:10px;line-height:1;text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--matt);
+}
+.feld.gold{background:#241b06;border-color:#000}
 .feld.gold b{color:var(--gold)}
+.feld.gold span{border-top-color:rgba(255,198,61,.28)}
 .lueckefueller{flex:1}
 
 .kopfknopf{
-  display:flex;align-items:center;gap:6px;
-  padding:0 13px;
-  background:#241f30;color:var(--schrift);
-  border:1px solid var(--rand);border-radius:7px;
-  font:inherit;font-size:14px;cursor:pointer;
+  display:flex;align-items:center;gap:7px;
+  padding:0 14px;
+  background:var(--platte-hell);color:var(--schrift);
+  border:2px solid var(--kante);border-radius:0;
+  box-shadow:inset 0 2px 0 var(--licht), inset 0 -2px 0 var(--tiefe);
+  font:inherit;font-size:15px;font-weight:bold;letter-spacing:.3px;
+  white-space:nowrap;cursor:pointer;
 }
-.kopfknopf:hover{background:#2f2840;border-color:#5a4f70}
+.kopfknopf:hover{background:#332b42}
+.kopfknopf:active{background:#17131f;box-shadow:inset 0 2px 0 var(--tiefe)}
 .kopfknopf kbd{
-  font:11px/1 monospace;padding:2px 5px;
-  background:#0f0d15;border:1px solid var(--rand);border-radius:4px;color:var(--matt);
+  min-width:20px;padding:3px 5px;text-align:center;
+  font:bold 11px/1 monospace, "Trebuchet MS", sans-serif;color:var(--gold);
+  background:var(--platte-tief);border:1px solid var(--kante);
+  box-shadow:inset 0 1px 0 rgba(255,240,214,.10);
 }
 
 /* ---------------- Status links ---------------- */
 #status{
-  position:fixed;top:64px;left:8px;width:198px;
-  padding:10px;
-  background:var(--panel);border:1px solid var(--rand);border-radius:10px;
+  position:fixed;top:64px;left:8px;width:206px;
+  padding:8px;
+  background:var(--platte);
+  border:3px solid var(--kante);
+  box-shadow:inset 0 2px 0 var(--licht), 0 4px 0 rgba(0,0,0,.35);
   z-index:9;
 }
 .anzeige{margin-bottom:9px}
-.zeile{display:flex;justify-content:space-between;font-size:11px;
-  text-transform:uppercase;letter-spacing:.8px;color:var(--matt);margin-bottom:3px}
-.rille{height:9px;background:#0f0d15;border:1px solid var(--rand);border-radius:5px;overflow:hidden}
-.fuellung{display:block;height:100%;width:100%;border-radius:4px;transition:width .18s}
-.gruen{background:linear-gradient(90deg,#3f9c4b,var(--gruen))}
-.blau{background:linear-gradient(90deg,#2b7fbf,var(--blau))}
-.orange{background:linear-gradient(90deg,#c96a1e,var(--orange))}
-.warn{background:linear-gradient(90deg,#a02020,var(--rot))}
+/* Beschriftung links matt und gesperrt, Wert rechts hell und fett.
+   Zwei verschiedene Schriftbilder, damit sich beides nie vermischt. */
+.zeile{
+  display:flex;justify-content:space-between;align-items:baseline;gap:6px;
+  margin-bottom:4px;
+  font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--matt);
+}
+.zeile span:last-child{
+  font-size:13px;font-weight:bold;letter-spacing:.3px;text-transform:none;
+  color:var(--schrift);font-variant-numeric:tabular-nums;
+}
+.rille{
+  position:relative;height:14px;
+  background:var(--platte-tief);
+  border:2px solid var(--kante);
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.45);
+  overflow:hidden;
+}
+.fuellung{
+  display:block;height:100%;width:100%;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.30), inset 0 -2px 0 rgba(0,0,0,.28);
+  transition:width .18s;
+}
+/* Das Segmentraster liegt auf der Rille, nicht auf der Fuellung. spiel.js
+   setzt allein style.width in Prozent; das Raster muss davon unberuehrt an
+   derselben Stelle stehen bleiben, sonst wandern die Kloetze beim Fuellen. */
+.rille::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(90deg,
+    rgba(0,0,0,0) 0, rgba(0,0,0,0) var(--takt),
+    var(--platte-tief) var(--takt),
+    var(--platte-tief) calc(var(--takt) + var(--steg)));
+}
+/* Je Balken eine satte Flaechenfarbe, kein Verlauf darin */
+.gruen{background:var(--gruen)}
+.blau{background:var(--blau)}
+.orange{background:var(--orange)}
+.warn{background:var(--rot)}
 
-#fracht{list-style:none;margin-top:8px;font-size:13px}
-#fracht li{display:flex;align-items:center;gap:7px;padding:1px 0}
-#fracht li i{width:11px;height:11px;border-radius:3px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}
-#fracht li span{flex:1;color:var(--matt)}
-#fracht li b{font-variant-numeric:tabular-nums}
-#fracht:empty::after{content:"Rucksack ist leer";color:var(--matt);font-size:12px;font-style:italic}
-#lager li{display:flex;align-items:center;gap:7px;padding:1px 0;font-size:13px}
-#lager li i{width:11px;height:11px;border-radius:3px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}
-#lager li span{flex:1;color:var(--matt)}
-#lager li b{font-variant-numeric:tabular-nums}
-#lager:empty::after{content:"noch nichts";color:#5c5468;font-size:12px;font-style:italic}
+#fracht,#lager{list-style:none;font-size:13px}
+#fracht{margin-top:9px}
+#fracht li,#lager li{
+  display:flex;align-items:center;gap:7px;
+  margin-top:2px;padding:3px 6px;
+  background:var(--platte-tief);
+  border-left:3px solid var(--rand);
+}
+#fracht li i,#lager li i{
+  width:12px;height:12px;flex:none;border-radius:0;
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.45),
+             inset -1px -1px 0 rgba(0,0,0,.50),
+             0 0 0 1px var(--kante);
+}
+#fracht li span,#lager li span{flex:1;color:var(--schrift);letter-spacing:.2px}
+#fracht li b,#lager li b{font-size:14px;color:var(--gold);font-variant-numeric:tabular-nums}
+#fracht:empty::after{content:"Rucksack ist leer";display:block;margin-top:9px;
+  color:var(--matt);font-size:12px}
+#lager:empty::after{content:"noch nichts";display:block;color:#5c5468;font-size:12px}
 .lagerKopf{
-  margin:11px 0 4px;padding-top:9px;
-  border-top:1px solid var(--rand);
-  font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--matt);
+  margin:11px 0 5px;padding:4px 7px;
+  background:var(--platte-hell);
+  border:2px solid var(--kante);
+  box-shadow:inset 0 2px 0 var(--licht);
+  font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:1.1px;
+  color:var(--schrift);
 }
 
 /* ---------------- Fussleiste ---------------- */
@@ -102,40 +185,80 @@ html,body{
   display:flex;gap:8px;align-items:flex-end;
   z-index:9;max-width:96vw;flex-wrap:wrap;justify-content:center;
 }
+/* min-width:0 und Umbruch: auf einem schmalen Geraet legt sich die zweite
+   Kartenreihe unter die erste, statt seitlich aus dem Bild zu laufen. */
 #werkzeuge,#vorrat{
-  display:flex;gap:6px;padding:7px;
-  background:var(--panel);border:1px solid var(--rand);border-radius:10px;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:5px;
+  min-width:0;padding:5px;
+  background:var(--platte);
+  border:3px solid var(--kante);
+  box-shadow:inset 0 2px 0 var(--licht);
 }
+/* Die Karte ist eine Spalte: Name, Angabe, Balken. Der nackte Textknoten
+   "Haerte n" aus spiel.js wird dabei zur eigenen Zeile, ganz ohne Umbau. */
 .karte{
-  width:92px;padding:6px 7px;
-  background:#191423;border:1px solid var(--rand);border-radius:7px;
-  font-size:11px;line-height:1.25;
+  display:flex;flex-direction:column;gap:4px;
+  width:102px;padding:6px 8px;
+  background:var(--platte-hell);
+  border:2px solid var(--kante);
+  box-shadow:inset 0 2px 0 var(--licht), inset 0 -2px 0 var(--tiefe);
+  font-size:10px;line-height:1.15;letter-spacing:.7px;
+  text-transform:uppercase;color:var(--matt);
 }
-.karte.aktiv{border-color:var(--gold);background:#2a2113;box-shadow:0 0 0 1px var(--gold) inset}
-.karte.leer{opacity:.32}
-.karte b{display:block;font-size:12px;margin-bottom:3px}
-.karte .rille{height:5px;margin-top:5px}
+.karte b{
+  font-size:13px;line-height:1.1;color:var(--schrift);
+  text-transform:none;letter-spacing:.2px;
+}
+/* margin-top:auto haelt den Balken am unteren Rand, auch wenn ein langer
+   Name auf zwei Zeilen umbricht. So stehen alle Balken auf einer Linie. */
+.karte .rille{height:9px;margin-top:auto;--takt:7px;--steg:3px}
+.karte.aktiv{
+  background:#3a2c0c;border-color:var(--gold);
+  box-shadow:inset 0 2px 0 rgba(255,225,150,.35), inset 0 -2px 0 rgba(0,0,0,.45);
+}
+.karte.aktiv b{color:var(--gold)}
+.karte.leer{opacity:.40}
+/* Zahl gross und gold, Sache klein darunter, Taste als eigenes Feld */
 .vorratKarte{
-  min-width:66px;padding:6px 9px;text-align:center;
-  background:#191423;border:1px solid var(--rand);border-radius:7px;font-size:11px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  min-width:74px;padding:5px 8px;text-align:center;
+  background:var(--platte-hell);
+  border:2px solid var(--kante);
+  box-shadow:inset 0 2px 0 var(--licht), inset 0 -2px 0 var(--tiefe);
+  font-size:10px;text-transform:uppercase;letter-spacing:.9px;color:var(--matt);
 }
-.vorratKarte b{display:block;font-size:17px;color:var(--gold)}
-.vorratKarte.null b{color:#5c5468}
+.vorratKarte b{
+  font-size:20px;line-height:1;color:var(--gold);
+  font-variant-numeric:tabular-nums;
+}
+.vorratKarte kbd{
+  min-width:18px;padding:2px 6px;
+  font:bold 10px/1 monospace, "Trebuchet MS", sans-serif;color:var(--schrift);
+  background:var(--platte-tief);border:1px solid var(--kante);
+}
+.vorratKarte.null{opacity:.55}
+.vorratKarte.null b{color:#6b6379}
 
 /* ---------------- Meldungen ---------------- */
 #meldungen{
-  position:fixed;top:70px;left:50%;transform:translateX(-50%);
+  position:fixed;top:72px;left:50%;transform:translateX(-50%);
   display:flex;flex-direction:column;gap:5px;align-items:center;
+  max-width:min(560px,92vw);
   z-index:11;pointer-events:none;
 }
+/* Der Farbstreifen sitzt links, der Text bleibt hell. Farbige Schrift auf
+   dunklem Grund liest sich fuer ein Kind deutlich schlechter. */
 .meldung{
-  padding:7px 15px;border-radius:20px;font-size:14px;
-  background:rgba(20,17,26,.95);border:1px solid var(--rand);
+  max-width:100%;padding:7px 14px;text-align:center;
+  font-size:15px;font-weight:bold;letter-spacing:.2px;color:var(--schrift);
+  background:var(--platte);
+  border:2px solid var(--kante);border-left:7px solid var(--rand);
+  box-shadow:inset 0 2px 0 var(--licht);
   animation:auf .25s ease-out, weg .4s ease-in 2.1s forwards;
 }
-.meldung.gut{border-color:var(--gruen);color:var(--gruen)}
-.meldung.schlecht{border-color:var(--rot);color:var(--rot)}
-.meldung.gold{border-color:var(--gold);color:var(--gold)}
+.meldung.gut{border-left-color:var(--gruen);color:#d8f6d4}
+.meldung.schlecht{border-left-color:var(--rot);color:#ffd2d2}
+.meldung.gold{border-left-color:var(--gold);color:var(--gold)}
 @keyframes auf{from{opacity:0;transform:translateY(-9px)}}
 @keyframes weg{to{opacity:0;transform:translateY(-9px)}}
 
