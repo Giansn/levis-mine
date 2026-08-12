@@ -215,18 +215,36 @@ function profilFeld(nr){
 
 const basisY = () => ober[BASIS_X];
 
-function grundstein(t, bonus){
-  const r = Math.random();
-  let s;
+/* Weiches Rauschen auf einem groberen Gitter, zwischen den Stuetzstellen
+   geglaettet. Damit waechst Gestein in Nestern statt Kachel fuer Kachel
+   ausgewuerfelt zu werden, was als Punktraster ins Auge fiele. */
+function wertRausch(x, y, skala, kern){
+  const gx = x/skala, gy = y/skala;
+  const x0 = Math.floor(gx), y0 = Math.floor(gy);
+  const fx = gx - x0, fy = gy - y0;
+  const u = fx*fx*(3 - 2*fx), v = fy*fy*(3 - 2*fy);
+  const e = (a, b) => hash(a*7919 + kern*131, b*104729 + kern*37);
+  return (e(x0,y0)*(1-u) + e(x0+1,y0)*u) * (1-v)
+       + (e(x0,y0+1)*(1-u) + e(x0+1,y0+1)*u) * v;
+}
+
+/* Mittlere Haerte nach Tiefe, das Rauschen verschiebt sie nach oben und unten */
+function mittlereHaerte(t){
+  if (t < 10)  return 1.05;
+  if (t < 32)  return 1.45;
+  if (t < 70)  return 2.10;
+  if (t < 120) return 2.75;
+  if (t < 170) return 3.25;
+  return 3.60;
+}
+
+function grundstein(x, y, t, bonus){
+  const n = 0.62*wertRausch(x, y, 5.5, 1) + 0.38*wertRausch(x, y, 2.1, 7);
+  let s = Math.round(mittlereHaerte(t) + bonus*0.45 + (n - 0.5) * 2.6);
   // Bis 32 Kacheln nur Erde und Stein. Sonst sperrt eine einzelne
   // Hartstein-Kachel den senkrechten Schacht, bevor der Hammer bezahlbar ist.
-  if      (t < 10)  s = r<0.94 ? 1 : 2;
-  else if (t < 32)  s = r<0.60 ? 1 : 2;
-  else if (t < 70)  s = r<0.18 ? 1 : (r<0.80 ? 2 : 3);
-  else if (t < 120) s = r<0.05 ? 1 : (r<0.45 ? 2 : (r<0.92 ? 3 : 4));
-  else if (t < 170) s = r<0.16 ? 2 : (r<0.68 ? 3 : 4);
-  else              s = r<0.06 ? 2 : (r<0.38 ? 3 : 4);
-  if (bonus && Math.random() < bonus * 0.18 * (0.4 + t/TIEFEN)) s = Math.min(4, s+1);
+  if (t < 32) s = Math.min(2, s);
+  s = Math.max(1, Math.min(4, s));
   return [0, ERDE, STEIN, HARTSTEIN, GRANIT][s];
 }
 
@@ -309,7 +327,7 @@ function neueWelt(nr){
       const i = y*BREITE + x;
       if (y < ob[x]) continue;                     // Luft ueber der Bergflanke
       bo[i] = (x === 0 || x === BREITE-1 || y >= HOEHE-2)
-        ? FELS : grundstein(y - FUSS, berg.bonus);
+        ? FELS : grundstein(x, y, y - FUSS, berg.bonus);
     }
   }
   grabeHoehlen(bo);
@@ -1020,15 +1038,75 @@ function ton(hex, d){
   return `rgb(${f((n>>16)&255)},${f((n>>8)&255)},${f(n&255)})`;
 }
 
+/* Durchgehender Untergrund je Tiefenband, zwoelf Kacheln breit. Er wird nach
+   Weltkoordinaten angeschnitten, darum laeuft die Zeichnung ueber Kachelgrenzen
+   hinweg und wiederholt sich erst nach zwoelf Kacheln statt nach jeder. */
+const GRUND_KACHELN = 12;
+const grundBild = {};
+
+function baueGrundbild(typ){
+  const S2 = K * GRUND_KACHELN;
+  const c = document.createElement('canvas');
+  c.width = c.height = S2;
+  const d = c.getContext('2d');
+  const g = GESTEIN[typ];
+  d.fillStyle = g.farbe;
+  d.fillRect(0, 0, S2, S2);
+
+  const umlauf = [[0,0],[S2,0],[-S2,0],[0,S2],[0,-S2],[S2,S2],[-S2,-S2],[S2,-S2],[-S2,S2]];
+
+  // grosse weiche Schollen
+  for (let i = 0; i < 200; i++){
+    const mx = hash(i*7 + typ, typ*13 + i*3) * S2;
+    const my = hash(typ*17 + i*11, i*5 + typ) * S2;
+    const rz = hash(i*3 + typ, i*5);
+    d.globalAlpha = 0.05 + rz*0.10;
+    d.fillStyle = rz < 0.5 ? g.korn : ton(g.farbe, 0.06);
+    for (const [ox, oy] of umlauf){
+      d.beginPath();
+      for (let n = 0; n <= 10; n++){
+        const w = n/10 * Math.PI*2;
+        const rr = K * (0.35 + rz*0.85) * (0.6 + hash(i*13 + n, n*7 + typ)*0.7);
+        const px = mx + ox + Math.cos(w)*rr, py = my + oy + Math.sin(w)*rr*0.7;
+        if (n) d.lineTo(px, py); else d.moveTo(px, py);
+      }
+      d.closePath(); d.fill();
+    }
+  }
+  // feine Koernung
+  for (let i = 0; i < 900; i++){
+    const mx = hash(i*23 + typ, typ*29 + i) * S2;
+    const my = hash(typ*31 + i*19, i*11 + typ) * S2;
+    const rz = hash(i*11 + typ, i*13);
+    d.globalAlpha = 0.10 + rz*0.24;
+    d.fillStyle = rz < 0.6 ? g.korn : ton(g.farbe, 0.09);
+    for (const [ox, oy] of umlauf){
+      d.beginPath(); d.arc(mx+ox, my+oy, 0.8 + rz*2.2, 0, 7); d.fill();
+    }
+  }
+  d.globalAlpha = 1;
+  return c;
+}
+
+/* Ein Kachelbild ist jetzt ein durchsichtiger Fleck, kein volles Quadrat.
+   Nachbarkacheln gleicher Art fliessen dadurch ineinander. */
 function baueKachelbild(typ, variante){
   const c = document.createElement('canvas');
   c.width = c.height = K;
   const d = c.getContext('2d');
   const g = GESTEIN[typ];
 
-  // Grundton je Variante leicht verschieben, sonst entsteht ein Schachbrett
-  d.fillStyle = ton(g.farbe, (hash(variante*17+3, typ*29+7) - 0.5) * 0.09);
-  d.fillRect(0, 0, K, K);
+  d.fillStyle = ton(g.farbe, (hash(variante*17+3, typ*29+7) - 0.5) * 0.07);
+  d.beginPath();
+  for (let n = 0; n <= 13; n++){
+    const w = n/13 * Math.PI*2;
+    const r = K * (0.52 + hash(variante*29 + n*7, n*11 + typ) * 0.20);
+    const px = K/2 + Math.cos(w)*r, py = K/2 + Math.sin(w)*r;
+    if (n) d.lineTo(px, py); else d.moveTo(px, py);
+  }
+  d.closePath();
+  d.fill();
+  d.globalCompositeOperation = 'source-atop';   // alles Weitere bleibt im Fleck
 
   // Koernung als runde Krumen, ueber den Rand hinaus, damit keine Kante entsteht
   for (let i = 0; i < 30; i++){
@@ -1139,6 +1217,7 @@ function baueRandbild(maske){
 }
 
 function baueAlleKachelbilder(){
+  for (const typ of [ERDE, STEIN, HARTSTEIN, GRANIT]) grundBild[typ] = baueGrundbild(typ);
   for (const typ of [ERDE, GEROELL, STEIN, HARTSTEIN, GRANIT, FELS, GAS, ERZ, KUPFER, BRONZE, SILBER, GOLDERZ, SCHATZ]){
     kachelBild[typ] = [];
     for (let v = 0; v < VARIANTEN; v++) kachelBild[typ].push(baueKachelbild(typ, v));
@@ -1435,8 +1514,22 @@ function zeichne(){
         }
         continue;
       }
-      const bilder = kachelBild[typ === GAS ? tarnung(y) : typ];
-      if (bilder) ctx.drawImage(bilder[(hash(x,y)*VARIANTEN)|0], px, py);
+      // durchgehender Untergrund, nach Weltkoordinaten angeschnitten
+      const grund = grundBild[tarnung(y)];
+      if (grund){
+        const gx = (((x % GRUND_KACHELN) + GRUND_KACHELN) % GRUND_KACHELN) * K;
+        const gy = (((y % GRUND_KACHELN) + GRUND_KACHELN) % GRUND_KACHELN) * K;
+        ctx.drawImage(grund, gx, gy, K, K, px, py, K, K);
+      }
+      // Gestein als Fleck darauf, laeuft in die Nachbarn ueber. Entspricht die
+      // Art dem Untergrund, entfaellt der Fleck, sonst zeichnete seine leichte
+      // Helligkeitsstreuung die Kacheln wieder nach.
+      const zTyp = typ === GAS ? tarnung(y) : typ;
+      const gg = GESTEIN[zTyp];
+      if (zTyp !== tarnung(y) || gg.erz || gg.schatz){
+        const bilder = kachelBild[zTyp];
+        if (bilder) ctx.drawImage(bilder[(hash(x,y)*VARIANTEN)|0], px, py);
+      }
       // Saum an jeder Seite, die an Hohlraum grenzt
       let maske = 0;
       if (!fest(x, y-1)) maske |= 1;
