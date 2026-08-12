@@ -589,10 +589,15 @@ function bewege(dt){
       P.vy = 0;
     }
     const steuer = P.amBoden ? 1 : LUFT;
-    if (links)  P.vx = -LAUF * (P.amBoden ? 1 : Math.max(0.55, steuer+0.3));
+    // Beim Diagonalgraben bleibt Levi stehen, sonst laeuft er vom Ziel weg
+    const graebtSchraeg = diagonalZiel() !== null;
+    if (graebtSchraeg) P.vx *= Math.pow(0.0008, dt);
+    else if (links)  P.vx = -LAUF * (P.amBoden ? 1 : Math.max(0.55, steuer+0.3));
     else if (rechts) P.vx = LAUF * (P.amBoden ? 1 : Math.max(0.55, steuer+0.3));
     else P.vx *= Math.pow(0.0008, dt);
-    if (auf && P.amBoden && !P.klettert && !fest(Math.floor(P.x+P.b/2), Math.floor(P.y)-1)){
+    // Nicht springen, solange die Schraege abgebaut wird
+    if (auf && P.amBoden && !P.klettert && !graebtSchraeg
+        && !fest(Math.floor(P.x+P.b/2), Math.floor(P.y)-1)){
       P.vy = -SPRUNG; P.amBoden = false; klang('sprung');
     }
   }
@@ -622,6 +627,16 @@ function bestesWerkzeug(haerte){
   return treffer;
 }
 
+/* Die Kachel schraeg ueber Levi auf der Seite, in die er drueckt.
+   Gibt null zurueck, wenn dort nichts zu holen ist. */
+function diagonalZiel(){
+  if (!taste.auf || P.klettert) return null;
+  if (!taste.links && !taste.rechts) return null;
+  const zx = Math.floor(P.x + P.b/2) + (taste.rechts ? 1 : -1);
+  const zy = Math.floor(P.y) - 1;
+  return fest(zx, zy) ? [zx, zy] : null;
+}
+
 function zielKachel(){
   const cx = Math.floor(P.x + P.b/2);
   const mitte = Math.floor(P.y + P.h*0.5);
@@ -630,6 +645,12 @@ function zielKachel(){
   // Die Kachel darueber ist floor(P.y) - 1, nicht floor(P.y - 0.04).
   const oben  = Math.floor(P.y) - 1;
   const seitlich = P.amBoden || P.klettert || S.imFahrzeug;
+
+  // Diagonal nach oben, mit Pfeil hoch und einer Seitentaste zusammen.
+  // Damit graebt Levi sich eine Treppe und kommt ohne Balken und Schienen
+  // wieder hoch. Muss vor den anderen Zielen stehen.
+  const dz = diagonalZiel();
+  if (dz) return [dz[0], dz[1], 0.7];
 
   if (taste.ab && !P.klettert && fest(cx, unten))                     return [cx, unten, 1];
   if (seitlich && taste.links  && fest(Math.floor(P.x-0.16), mitte))  return [Math.floor(P.x-0.16), mitte, 1];
@@ -1749,6 +1770,10 @@ function zeigeHilfe(){
     <table class="tafel">
       <tr><td>Nach oben graben</td><td>Mit <kbd>▲</kbd> brichst du die Kachel über deinem Kopf,
         etwas langsamer als nach unten. So gräbst du dich immer wieder heraus.</td></tr>
+      <tr><td>Treppe graben</td><td>Halte <kbd>▲</kbd> zusammen mit <kbd>◀</kbd> oder <kbd>▶</kbd>, dann
+        brichst du die Kachel <b>schräg über dir</b>. Die Kachel darunter bleibt als Stufe stehen,
+        und auf die springst du hinauf. So gräbst du dir eine Treppe, auch wenn Balken und
+        Schienen aufgebraucht sind.</td></tr>
       <tr><td>Balken als Leiter</td><td>Setz beim Abstieg mit <kbd>Leer</kbd> Stützbalken in den Schacht.
         An ihnen kletterst du mit <kbd>▲</kbd> und <kbd>▼</kbd> hoch und runter. Schienen taugen auch dazu.</td></tr>
       <tr><td>Seilwinde</td><td>Steckst du fest, zieht dich <kbd>L</kbd> samt Ladung sofort zur Basis.

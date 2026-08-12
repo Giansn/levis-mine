@@ -326,6 +326,63 @@ pruefe('Beide Welten wiederhergestellt', lies('Object.keys(welten).length') === 
 pruefe('Abgebaute Kachel bleibt abgebaut', lies('boden[idx(BASIS_X, basisY())]') === 0);
 pruefe('Profil nach dem Laden wieder da', lies('ober.length') === B);
 
+/* ------------------------------- Treppe ---------------------------------- */
+/* Ohne Balken und Schienen muss Levi sich eine Treppe graben koennen.
+   Dazu braucht er die Kachel schraeg ueber sich. */
+beruhige();
+const treppe = lies(`(() => {
+  const x = 24, y = FUSS + 60;
+  // Kammer freiraeumen, Levi auf festen Boden stellen
+  for (let dy = -4; dy <= 1; dy++) for (let dx = -2; dx <= 3; dx++)
+    boden[idx(x+dx, y+dy)] = LEER;
+  for (let dx = -2; dx <= 3; dx++) boden[idx(x+dx, y+1)] = ERDE;
+  boden[idx(x+1, y)] = ERDE;        // Wand vor Levi
+  boden[idx(x+1, y-1)] = ERDE;      // die Stufe, die er wegnehmen soll
+  P.x = x + 0.15; P.y = y + 1 - P.h; P.vx = 0; P.vy = 0;
+  for (let i = 0; i < 30; i++) aktualisiere(1/60);
+  return {x, y, stufeVorher: boden[idx(x+1, y-1)], wandVorher: boden[idx(x+1, y)],
+          ziel: JSON.stringify(diagonalZiel())};
+})()`);
+pruefe('Stufe steht vor dem Graben', treppe.stufeVorher !== 0 && treppe.wandVorher !== 0);
+
+lies('taste.auf = true; taste.rechts = true');
+const zielGefunden = lies('diagonalZiel() !== null');
+pruefe('Diagonales Ziel wird erkannt', zielGefunden === true, treppe.ziel);
+try { for (let i = 0; i < 400; i++) lies('aktualisiere(1/60)'); }
+catch (e){ fehler.push('beim Treppengraben: ' + e.stack); }
+lies('taste.auf = false; taste.rechts = false');
+pruefe('Levi bricht die Kachel schraeg ueber sich',
+  lies(`boden[idx(${treppe.x}+1, ${treppe.y}-1)]`) === 0,
+  'Kachel ' + lies(`boden[idx(${treppe.x}+1, ${treppe.y}-1)]`));
+pruefe('Die Wand darunter bleibt als Stufe stehen',
+  lies(`boden[idx(${treppe.x}+1, ${treppe.y})]`) !== 0,
+  'Kachel ' + lies(`boden[idx(${treppe.x}+1, ${treppe.y})]`));
+
+/* Und die Stufe muss auch bestiegen werden koennen. Frisches Szenario, damit
+   das Graben von vorher nicht hineinspielt: ebener Boden, eine Kachel hohe
+   Stufe rechts, Luft darueber. Levi laeuft nach rechts und springt getaktet. */
+const stiege = lies(`(() => {
+  const x = 34, y = FUSS + 80;
+  for (let dy = -6; dy <= 2; dy++) for (let dx = -3; dx <= 5; dx++)
+    boden[idx(x+dx, y+dy)] = LEER;
+  for (let dx = -3; dx <= 12; dx++) boden[idx(x+dx, y+1)] = ERDE;  // Boden
+  for (let dx = 1; dx <= 10; dx++)  boden[idx(x+dx, y)]  = ERDE;   // breite Stufe
+  P.x = x + 0.1; P.y = y + 1 - P.h; P.vx = 0; P.vy = 0;
+  for (let i = 0; i < 30; i++) aktualisiere(1/60);
+  return {x, y, startFuss: +(P.y + P.h).toFixed(2)};
+})()`);
+lies('taste.rechts = true');
+let bestiegen = false;
+for (let bild = 0; bild < 400 && !bestiegen; bild++){
+  lies(bild % 30 < 4 ? 'taste.auf = true' : 'taste.auf = false');
+  lies('aktualisiere(1/60)');
+  if (Math.abs(lies('P.y + P.h') - stiege.y) < 0.02 && lies('P.amBoden')) bestiegen = true;
+}
+lies('taste.rechts = false; taste.auf = false');
+pruefe('Levi steigt die Stufe hinauf', bestiegen,
+  'Start Zeile ' + stiege.startFuss + ', jetzt ' + lies('(P.y + P.h).toFixed(2)') +
+  ', Stufe ist ' + stiege.y);
+
 /* ------------------------ Aufrufpunkte vorhanden ------------------------- */
 /* Ein zeilenweises Entfernen hat einmal fensterZu mitgelöscht. node --check
    fand nichts, weil es syntaktisch gueltig blieb. Darum diese Liste. */

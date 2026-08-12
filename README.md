@@ -22,6 +22,7 @@ Entwicklerkonsole mit `neuAnfangen()`.
 | ◀ ▶ bzw. A D | laufen, seitlich bohren |
 | ▼ | nach unten bohren |
 | ▲ | springen, klettern, nach oben bohren, im Fahrzeug Schub |
+| ▲ + ◀ ▶ | schräg nach oben bohren, gräbt eine Treppe |
 | Leertaste | Stützbalken setzen |
 | R | Schiene legen |
 | F | Dynamit zünden |
@@ -53,9 +54,15 @@ geben, und einzelne Fundstücke ganz unten.
 
 ## Wieder nach oben
 
-Drei Wege, damit niemand unten feststeckt: mit der Pfeiltaste nach oben die
-Kachel über dem Kopf wegbrechen, an gesetzten Stützbalken oder Schienen
-klettern, oder die Seilwinde mit `L`, die samt Ladung zur Basis zieht.
+Vier Wege, damit niemand unten feststeckt: die Kachel über dem Kopf
+wegbrechen, mit `▲` und einer Seitentaste zusammen die Kachel schräg darüber
+wegnehmen und auf die stehengebliebene Stufe springen, an gesetzten
+Stützbalken oder Schienen klettern, oder die Seilwinde mit `L`, die samt
+Ladung zur Basis zieht.
+
+Wie weit Levi im Berg sieht, hängt an der Lampe. Vier Stufen, von der
+Helmlampe mit 5,0 Kacheln bis zum Scheinwerfer mit 13,8 Kacheln, kaufbar im
+Laden.
 
 ## Dateien
 
