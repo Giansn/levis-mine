@@ -475,6 +475,42 @@ const belohnung = lies('FUNK.map(f => f.gold)');
 pruefe('Die Belohnung waechst mit',
   belohnung.every((g, i) => i === 0 || g > belohnung[i-1]), belohnung.join(', ') + ' Goldstücke');
 
+/* ---------------------------- Keine Sackgasse ---------------------------- */
+/* Ohne Werkzeug, ohne Gold und mit leerem Lager kann Levi nichts mehr brechen
+   und darum nichts mehr verdienen. Gemessen waren das 0 Meter nach zehn
+   Sekunden Graben, das Spiel war von dort aus unspielbar. */
+lies('S.werkzeuge = {}; S.gold = 0; S.dynamit = 0');
+lies('MATS.forEach(m => { S.lager[m] = 0; S.fracht[m] = 0; })');
+lies('P.x = BASIS_X; P.y = basisY() - P.h; P.vx = 0; P.vy = 0');
+pruefe('Sackgasse ist erkennbar', lies('bestesWerkzeug(1)') === null);
+for (let i = 0; i < 20; i++) lies('aktualisiere(1/60)');
+pruefe('Das Haus gibt eine Reserveschaufel', lies('bestesWerkzeug(1)') !== null,
+  'Schaufel ' + lies('S.werkzeuge.schaufel || 0'));
+lies('taste.ab = true');
+for (let i = 0; i < 240; i++) lies('aktualisiere(1/60)');
+lies('taste.ab = false');
+pruefe('Und damit geht es wieder abwaerts',
+  lies('Math.round((P.y + P.h - FUSS) * METER)') > 0,
+  lies('Math.round((P.y + P.h - FUSS) * METER)') + ' m');
+
+/* Wer noch Gold oder Erz hat, bekommt nichts geschenkt */
+lies('S.werkzeuge = {}; S.gold = 500; MATS.forEach(m => S.lager[m] = 0)');
+lies('P.x = BASIS_X; P.y = basisY() - P.h');
+for (let i = 0; i < 20; i++) lies('aktualisiere(1/60)');
+pruefe('Mit Gold gibt es keine Gratisschaufel', lies('bestesWerkzeug(1)') === null);
+lies('S.werkzeuge = {schaufel:120, pickel:95}');
+
+/* Zweite Sackgasse: unten gestrandet ohne Seil und ohne Gold fuer eines */
+lies('S.seilwinde = 0; S.gold = 0; S.werkzeuge = {schaufel:120, pickel:95}');
+lies('P.x = BASIS_X; P.y = basisY() - P.h');
+for (let i = 0; i < 20; i++) lies('aktualisiere(1/60)');
+pruefe('Ohne Seil und ohne Gold gibt das Haus eines mit', lies('S.seilwinde') >= 1,
+  lies('S.seilwinde') + ' Seilwinden');
+lies('S.seilwinde = 0; S.gold = 500');
+for (let i = 0; i < 20; i++) lies('aktualisiere(1/60)');
+pruefe('Wer zahlen kann, bekommt keines geschenkt', lies('S.seilwinde') === 0);
+lies('S.gold = 0; S.seilwinde = 2');
+
 /* ----------------------------- Erz verkaufen ----------------------------- */
 /* Erz wird beim Abliefern nicht zu Gold, es landet im Lager. Wer das nicht
    sieht, steht mit vollem Lager und null Goldstuecken da. */

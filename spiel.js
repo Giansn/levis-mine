@@ -1081,6 +1081,24 @@ function anBasis(){
 
 function basisTick(dt){
   if (!anBasis()) return;
+  /* Sicherheitsnetz gegen die Sackgasse. Ohne Werkzeug, ohne Gold und mit
+     leerem Lager kann Levi nichts mehr brechen, also nichts mehr verdienen,
+     also nie wieder ein Werkzeug kaufen. Gemessen: 0 Meter nach zehn Sekunden
+     Graben. Das Haus haelt darum eine Reserveschaufel bereit. */
+  if (bestesWerkzeug(1) === null && lagerWert() === 0
+      && frachtStueck() === 0
+      && S.gold < ((LADEN.find(w => w.id === 'schaufel').preis || {}).gold || 0)){
+    S.werkzeuge.schaufel = WZ.schaufel.halt;
+    melde('Im Haus lag noch eine Reserveschaufel', 'gut', 'reserve');
+    klang('kaufen');
+  }
+  /* Zweite Sackgasse, gemessen an einem Durchlauf: unten gestrandet, Seilwinden
+     verbraucht, Gestein zu hart zum Weitergraben in jede Richtung. Wer die Mine
+     verlaesst, nimmt darum immer mindestens ein Seil mit. */
+  if (S.seilwinde === 0 && S.gold < ((LADEN.find(w => w.id === 'seilwinde').preis || {}).gold || 0)){
+    S.seilwinde = 1;
+    melde('Im Haus hing noch ein Seil, nimm es mit', 'gut', 'seilreserve');
+  }
   if (frachtStueck() > 0) abliefern();
   if (S.leben < 100) S.leben = Math.min(100, S.leben + 34*dt);
   if (S.bohrer && S.treibstoff < 100) S.treibstoff = Math.min(100, S.treibstoff + 42*dt);
