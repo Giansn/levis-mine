@@ -454,6 +454,39 @@ const belohnung = lies('FUNK.map(f => f.gold)');
 pruefe('Die Belohnung waechst mit',
   belohnung.every((g, i) => i === 0 || g > belohnung[i-1]), belohnung.join(', ') + ' Goldstücke');
 
+/* ------------------------------ Optionen --------------------------------- */
+const inhalt = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
+lies('fensterZu()');
+lies('zeigeOptionen()');
+pruefe('Optionsfenster geht auf', lies('document.getElementById("schleier").hidden') === false);
+pruefe('Optionsfenster heisst Pause',
+  lies(`document.getElementById('fensterTitel').textContent`) === 'Pause');
+for (const w of ['Neues Spiel', 'Ton', 'Laden', 'Berge', 'Hilfe', 'Weiterspielen'])
+  pruefe('Optionen bieten ' + w, inhalt().includes(w));
+
+/* Ein Neustart loescht den Spielstand, darum wird zuerst nachgefragt */
+lies('tueEs("neu")');
+pruefe('Neues Spiel fragt erst nach', inhalt().includes('Wirklich neu anfangen'));
+pruefe('Die Nachfrage nennt den Verlust', inhalt().includes('Goldstücke'));
+pruefe('Die Nachfrage laesst sich abbrechen', inhalt().includes('data-tat="zurueck"'));
+lies('tueEs("zurueck")');
+pruefe('Abbrechen schliesst das Fenster', lies('document.getElementById("schleier").hidden') === true);
+pruefe('Abbrechen loescht nichts', speicher.has(lies('SCHLUESSEL')));
+
+/* Ton laesst sich hier umschalten */
+const tonVorher = lies('S.ton');
+lies('zeigeOptionen(); tueEs("ton")');
+pruefe('Ton laesst sich umschalten', lies('S.ton') === !tonVorher);
+lies('tueEs("ton")');
+pruefe('Und wieder zurueck', lies('S.ton') === tonVorher);
+
+/* Erst die Bestaetigung raeumt wirklich ab */
+lies('speichere()');
+pruefe('Vor dem Neustart liegt ein Stand vor', speicher.has(lies('SCHLUESSEL')));
+lies('tueEs("neuJa")');
+pruefe('Bestaetigter Neustart loescht den Stand', !speicher.has(lies('SCHLUESSEL')));
+lies('fensterZu()');
+
 /* ------------------------------ Zeichnen --------------------------------- */
 try { lies('zeichne(); hud()'); } catch (e){ fehler.push('zeichne/hud: ' + e.stack); }
 pruefe('Zeichnen und HUD laufen durch', !fehler.some(f => f.includes('zeichne/hud')));

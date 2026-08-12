@@ -84,6 +84,73 @@ const BERGE = [
    text:'Der härteste Berg. Unten liegt das Gold in dicken Adern.'},
 ];
 
+/* -------------------------------- Optionen ------------------------------- */
+
+/* Mit Escape erreichbar. Solange ein Fenster offen ist, laeuft die Spielschleife
+   nicht weiter, das Fenster ist damit zugleich die Pause. */
+function zeigeOptionen(nachfrage){
+  const knopf = (tat, text, art = '') =>
+    `<button class="kauf ${art}" data-tat="${tat}">${text}</button>`;
+
+  const gefahr = nachfrage
+    ? `<div class="gefahr">
+         <p><b>Wirklich neu anfangen?</b> Dein Spielstand wird gelöscht:
+         ${zahl(S.gold)} Goldstücke, ${S.offen.length} ${S.offen.length === 1 ? 'Berg' : 'Berge'},
+         tiefster Punkt ${S.tiefstes} Meter. Das lässt sich nicht rückgängig machen.</p>
+         <div class="gitter" style="margin-top:10px">
+           ${knopf('neuJa', 'Ja, alles löschen und neu anfangen')}
+           ${knopf('zurueck', 'Nein, weiterspielen', 'zweit')}
+         </div>
+       </div>`
+    : `<h3 class="abschnitt">Von vorn</h3>
+       <div class="gitter">
+         <div class="ware">
+           <div class="kopf2"><b>Neues Spiel</b></div>
+           <p>Löscht den Spielstand und erzeugt einen neuen Berg.</p>
+           ${knopf('neu', 'Neues Spiel')}
+         </div>
+       </div>`;
+
+  fenster('Pause', `
+    <p class="hinweis">${zahl(S.gold)} Goldstücke, Stufe ${stufe()},
+    tiefster Punkt ${S.tiefstes} Meter. Mit <kbd>Esc</kbd> geht es zurück ins Spiel.</p>
+    <h3 class="abschnitt">Einstellungen</h3>
+    <div class="gitter">
+      <div class="ware">
+        <div class="kopf2"><b>Ton</b><span style="color:var(--matt)">${S.ton ? 'an' : 'aus'}</span></div>
+        <p>Hacken, Erzfunde, Einstürze und Münzen.</p>
+        ${knopf('ton', S.ton ? 'Ton ausschalten' : 'Ton einschalten', 'zweit')}
+      </div>
+      <div class="ware">
+        <div class="kopf2"><b>Weiter</b></div>
+        <p>Zurück in den Berg.</p>
+        ${knopf('zu', 'Weiterspielen', 'zweit')}
+      </div>
+    </div>
+    <h3 class="abschnitt">Gehe zu</h3>
+    <div class="gitter">
+      <div class="ware"><div class="kopf2"><b>Laden</b></div><p>Ausrüstung kaufen und Erz verkaufen.</p>${knopf('laden', 'Laden öffnen', 'zweit')}</div>
+      <div class="ware"><div class="kopf2"><b>Berge</b></div><p>Berg wechseln oder einen neuen öffnen.</p>${knopf('berge', 'Berge zeigen', 'zweit')}</div>
+      <div class="ware"><div class="kopf2"><b>Hilfe</b></div><p>Steuerung und Spielregeln.</p>${knopf('hilfe', 'Hilfe zeigen', 'zweit')}</div>
+    </div>
+    ${gefahr}`);
+}
+
+function tueEs(tat){
+  if (tat === 'ton'){
+    S.ton = !S.ton;
+    document.getElementById('btnTon').textContent = S.ton ? '🔊' : '🔇';
+    speichere();
+    zeigeOptionen();
+  }
+  else if (tat === 'zu' || tat === 'zurueck') fensterZu();
+  else if (tat === 'laden') zeigeLaden();
+  else if (tat === 'berge') zeigeBerge();
+  else if (tat === 'hilfe') zeigeHilfe();
+  else if (tat === 'neu') zeigeOptionen(true);      // erst nachfragen
+  else if (tat === 'neuJa') neuAnfangen();
+}
+
 /* --------------------------------- Laden --------------------------------- */
 const LADEN = [
   {id:'schaufel', art:'werkzeug', name:'Schaufel', stufe:1,
@@ -484,7 +551,7 @@ addEventListener('keydown', e => {
   else if (z === 'k') zeigeLaden();
   else if (z === 'm') zeigeBerge();
   else if (z === 'h') zeigeHilfe();
-  else if (e.key === 'Escape') fensterZu();
+  else if (e.key === 'Escape') schleier.hidden ? zeigeOptionen() : fensterZu();
 });
 
 addEventListener('keyup', e => {
@@ -1817,10 +1884,11 @@ schleier.addEventListener('click', e => { if (e.target === schleier) fensterZu()
 document.getElementById('fensterInhalt').addEventListener('click', e => {
   const knopf = e.target.closest('button');
   if (!knopf || knopf.disabled) return;
-  const {kauf, verkauf, berg} = knopf.dataset;
+  const {kauf, verkauf, berg, tat} = knopf.dataset;
   if (kauf) kaufe(kauf);
   else if (verkauf) verkaufe(verkauf);
   else if (berg !== undefined) wechsleBerg(+berg);
+  else if (tat) tueEs(tat);
 });
 
 function fenster(titel, html){
