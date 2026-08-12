@@ -51,11 +51,15 @@ const MATS = ['erz','kupfer','bronze','silber','gold'];
 
 /* Tiefenmarken: der Fortschritt nach unten ist zugleich der Fortschritt im Spiel */
 const FUNK = [
-  {tiefe:100, gold:60,   text:'Hundert Meter. Levi, hier unten liegt schon Bronze.'},
-  {tiefe:250, gold:180,  text:'Zweihundertfünfzig Meter. Ab hier wird Silber häufig.'},
-  {tiefe:400, gold:450,  text:'Vierhundert Meter. Das Gestein ist jetzt Granit.'},
+  {tiefe:80,  gold:50,   text:'Achtzig Meter. Levi, hier unten liegt schon Bronze.'},
+  {tiefe:200, gold:150,  text:'Zweihundert Meter. Ab hier wird Silber häufig.'},
+  {tiefe:360, gold:400,  text:'Dreihundertsechzig Meter. Das Gestein ist jetzt Granit.'},
   {tiefe:580, gold:1200, text:'Fast am Grund. So tief war noch niemand im Dorf.'},
 ];
+
+/* Dauerhafte Ausruestung, im Gegensatz zu Verbrauchsgut. Der Laden zeigt den
+   Stand an, damit ein naeheres Ziel sichtbar ist als die 5000 Goldstuecke. */
+const AUSBAU = ['schaufel','pickel','hammer','nagel','lampe1','lampe2','lampe3','wagen','bohrer'];
 
 /* ------------------------------- Werkzeuge ------------------------------- */
 const WERKZEUG = [
@@ -140,6 +144,7 @@ const S = {
   werkzeuge:{schaufel:120, pickel:95},
   dynamit:0, balken:20, schienen:0, seilwinde:2,
   wagen:false, bohrer:false, imFahrzeug:false, lampe:0,
+  gekauft:['schaufel','pickel'],
   treibstoff:100, leben:100,
   tiefstes:0, funk:[], gewonnen:false, ton:true,
 };
@@ -1786,6 +1791,7 @@ function fensterZu(){ schleier.hidden = true; }
 /* --------------------------------- Laden --------------------------------- */
 
 const kommaZahl = n => n.toFixed(1).replace('.', ',');
+const ausbauStand = () => AUSBAU.filter(m => S.gekauft.includes(m)).length;
 
 /* Die Lampe ist ein Stufenkauf, Name und Preis haengen davon ab, welche
    Stufe als naechste kommt. Darum wird der Ladeneintrag hier aufgeloest. */
@@ -1845,7 +1851,8 @@ function zeigeLaden(){
     </div>`).join('') || '<p class="hinweis">Das Lager im Haus ist leer. Bring Erz von unten herauf.</p>';
 
   fenster('Laden an der Basis', `
-    <p class="hinweis">${zahl(S.gold)} Goldstücke im Haus, das sind CHF ${zahl(S.gold*FRANKEN)}. Stufe ${st}.</p>
+    <p class="hinweis">${zahl(S.gold)} Goldstücke im Haus, das sind CHF ${zahl(S.gold*FRANKEN)}. Stufe ${st}.
+    Ausrüstung ${ausbauStand()} von ${AUSBAU.length}.</p>
     <h3 class="abschnitt">Ausrüstung</h3>
     <div class="gitter">${waren}</div>
     <h3 class="abschnitt">Erz verkaufen</h3>
@@ -1862,6 +1869,15 @@ function kaufe(id){
   else if (w.art === 'stapel') S[id] += w.anzahl;
   else if (w.art === 'lampe') S.lampe++;
   else S[id] = true;
+
+  const marke = w.art === 'lampe' ? 'lampe' + S.lampe : id;
+  if (AUSBAU.includes(marke) && !S.gekauft.includes(marke)){
+    S.gekauft.push(marke);
+    if (ausbauStand() === AUSBAU.length){
+      melde('Die Ausrüstung ist vollständig, alle ' + AUSBAU.length + ' Stücke', 'gold');
+      klang('muenze');
+    }
+  }
 
   klang('kaufen');
   melde(w.name + ' gekauft', 'gold');

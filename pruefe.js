@@ -420,6 +420,35 @@ pruefe('Bei der besten Lampe steht Beste Stufe',
   lies(`document.getElementById('fensterInhalt').innerHTML.includes('Beste Stufe')`) === true);
 lies('S.lampe = 0; fensterZu()');
 
+/* --------------------------- Ausbaustand --------------------------------- */
+lies('S.gekauft = ["schaufel","pickel"]; S.lampe = 0; S.wagen = false; S.bohrer = false');
+pruefe('Ausbau beginnt bei zwei von neun',
+  lies('ausbauStand()') === 2 && lies('AUSBAU.length') === 9,
+  lies('ausbauStand()') + ' von ' + lies('AUSBAU.length'));
+lies('zeigeLaden()');
+pruefe('Der Laden zeigt den Ausbaustand',
+  lies(`document.getElementById('fensterInhalt').innerHTML.includes('Ausrüstung 2 von 9')`) === true);
+lies('S.gold = 9000; S.verdient = 9000; MATS.forEach(m => S.lager[m] = 99)');
+lies('kaufe("wagen")');
+pruefe('Ein Kauf hebt den Ausbaustand', lies('ausbauStand()') === 3, lies('ausbauStand()') + ' von 9');
+lies('kaufe("wagen")');
+pruefe('Derselbe Posten zaehlt nur einmal', lies('ausbauStand()') === 3);
+lies('kaufe("lampe"); kaufe("lampe"); kaufe("lampe")');
+pruefe('Lampenstufen zaehlen einzeln', lies('ausbauStand()') === 6, lies('ausbauStand()') + ' von 9');
+lies('kaufe("hammer"); kaufe("nagel"); kaufe("bohrer")');
+pruefe('Vollstaendige Ausruestung erreicht neun', lies('ausbauStand()') === 9,
+  lies('ausbauStand()') + ' von 9');
+lies('fensterZu()');
+
+/* Etappenmarken: die Abstaende muessen mit der Tiefe wachsen */
+const marken = lies('FUNK.map(f => f.tiefe)');
+const abstaende = marken.map((t, i) => i ? t - marken[i-1] : t);
+pruefe('Etappenabstaende wachsen mit der Tiefe',
+  abstaende.every((a, i) => i === 0 || a > abstaende[i-1]), abstaende.join(', ') + ' m');
+const belohnung = lies('FUNK.map(f => f.gold)');
+pruefe('Die Belohnung waechst mit',
+  belohnung.every((g, i) => i === 0 || g > belohnung[i-1]), belohnung.join(', ') + ' Goldstücke');
+
 /* ------------------------------ Zeichnen --------------------------------- */
 try { lies('zeichne(); hud()'); } catch (e){ fehler.push('zeichne/hud: ' + e.stack); }
 pruefe('Zeichnen und HUD laufen durch', !fehler.some(f => f.includes('zeichne/hud')));
