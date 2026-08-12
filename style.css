@@ -1,0 +1,225 @@
+:root{
+  --nacht:#0d0b12;
+  --panel:rgba(20,17,26,.88);
+  --rand:#3a3247;
+  --schrift:#efe6d6;
+  --matt:#9d92a8;
+  --gold:#ffc63d;
+  --gruen:#5fcf6b;
+  --blau:#4fb6ff;
+  --orange:#ff9b45;
+  --rot:#ff5c5c;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+html,body{
+  height:100%;
+  overflow:hidden;
+  background:var(--nacht);
+  color:var(--schrift);
+  font:15px/1.45 "Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+#leinwand{position:fixed;inset:0;display:block;image-rendering:auto}
+
+/* ---------------- Kopfleiste ---------------- */
+#kopf{
+  position:fixed;top:0;left:0;right:0;
+  display:flex;align-items:stretch;gap:2px;
+  padding:6px;
+  background:linear-gradient(180deg,rgba(13,11,18,.94),rgba(13,11,18,.55));
+  border-bottom:1px solid var(--rand);
+  z-index:10;
+}
+.feld{
+  display:flex;flex-direction:column;justify-content:center;
+  min-width:74px;padding:3px 11px;
+  border-right:1px solid rgba(255,255,255,.07);
+}
+.feld b{font-size:17px;letter-spacing:.3px;line-height:1.1}
+.feld span{font-size:10px;text-transform:uppercase;letter-spacing:1.1px;color:var(--matt)}
+.feld.gold b{color:var(--gold)}
+.lueckefueller{flex:1}
+
+.kopfknopf{
+  display:flex;align-items:center;gap:6px;
+  padding:0 13px;
+  background:#241f30;color:var(--schrift);
+  border:1px solid var(--rand);border-radius:7px;
+  font:inherit;font-size:14px;cursor:pointer;
+}
+.kopfknopf:hover{background:#2f2840;border-color:#5a4f70}
+.kopfknopf kbd{
+  font:11px/1 monospace;padding:2px 5px;
+  background:#0f0d15;border:1px solid var(--rand);border-radius:4px;color:var(--matt);
+}
+
+/* ---------------- Status links ---------------- */
+#status{
+  position:fixed;top:64px;left:8px;width:198px;
+  padding:10px;
+  background:var(--panel);border:1px solid var(--rand);border-radius:10px;
+  z-index:9;
+}
+.anzeige{margin-bottom:9px}
+.zeile{display:flex;justify-content:space-between;font-size:11px;
+  text-transform:uppercase;letter-spacing:.8px;color:var(--matt);margin-bottom:3px}
+.rille{height:9px;background:#0f0d15;border:1px solid var(--rand);border-radius:5px;overflow:hidden}
+.fuellung{display:block;height:100%;width:100%;border-radius:4px;transition:width .18s}
+.gruen{background:linear-gradient(90deg,#3f9c4b,var(--gruen))}
+.blau{background:linear-gradient(90deg,#2b7fbf,var(--blau))}
+.orange{background:linear-gradient(90deg,#c96a1e,var(--orange))}
+.warn{background:linear-gradient(90deg,#a02020,var(--rot))}
+
+#fracht{list-style:none;margin-top:8px;font-size:13px}
+#fracht li{display:flex;align-items:center;gap:7px;padding:1px 0}
+#fracht li i{width:11px;height:11px;border-radius:3px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}
+#fracht li span{flex:1;color:var(--matt)}
+#fracht li b{font-variant-numeric:tabular-nums}
+#fracht:empty::after{content:"Rucksack ist leer";color:var(--matt);font-size:12px;font-style:italic}
+#lager li{display:flex;align-items:center;gap:7px;padding:1px 0;font-size:13px}
+#lager li i{width:11px;height:11px;border-radius:3px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}
+#lager li span{flex:1;color:var(--matt)}
+#lager li b{font-variant-numeric:tabular-nums}
+#lager:empty::after{content:"noch nichts";color:#5c5468;font-size:12px;font-style:italic}
+.lagerKopf{
+  margin:11px 0 4px;padding-top:9px;
+  border-top:1px solid var(--rand);
+  font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--matt);
+}
+
+/* ---------------- Fussleiste ---------------- */
+#fuss{
+  position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
+  display:flex;gap:8px;align-items:flex-end;
+  z-index:9;max-width:96vw;flex-wrap:wrap;justify-content:center;
+}
+#werkzeuge,#vorrat{
+  display:flex;gap:6px;padding:7px;
+  background:var(--panel);border:1px solid var(--rand);border-radius:10px;
+}
+.karte{
+  width:92px;padding:6px 7px;
+  background:#191423;border:1px solid var(--rand);border-radius:7px;
+  font-size:11px;line-height:1.25;
+}
+.karte.aktiv{border-color:var(--gold);background:#2a2113;box-shadow:0 0 0 1px var(--gold) inset}
+.karte.leer{opacity:.32}
+.karte b{display:block;font-size:12px;margin-bottom:3px}
+.karte .rille{height:5px;margin-top:5px}
+.vorratKarte{
+  min-width:66px;padding:6px 9px;text-align:center;
+  background:#191423;border:1px solid var(--rand);border-radius:7px;font-size:11px;
+}
+.vorratKarte b{display:block;font-size:17px;color:var(--gold)}
+.vorratKarte.null b{color:#5c5468}
+
+/* ---------------- Meldungen ---------------- */
+#meldungen{
+  position:fixed;top:70px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:5px;align-items:center;
+  z-index:11;pointer-events:none;
+}
+.meldung{
+  padding:7px 15px;border-radius:20px;font-size:14px;
+  background:rgba(20,17,26,.95);border:1px solid var(--rand);
+  animation:auf .25s ease-out, weg .4s ease-in 2.1s forwards;
+}
+.meldung.gut{border-color:var(--gruen);color:var(--gruen)}
+.meldung.schlecht{border-color:var(--rot);color:var(--rot)}
+.meldung.gold{border-color:var(--gold);color:var(--gold)}
+@keyframes auf{from{opacity:0;transform:translateY(-9px)}}
+@keyframes weg{to{opacity:0;transform:translateY(-9px)}}
+
+/* ---------------- Fenster ---------------- */
+#schleier{
+  position:fixed;inset:0;z-index:20;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(6,5,9,.78);backdrop-filter:blur(3px);padding:16px;
+}
+#fenster{
+  position:relative;width:min(760px,100%);max-height:88vh;overflow:auto;
+  padding:24px 26px;
+  background:#15121d;border:1px solid var(--rand);border-radius:14px;
+  box-shadow:0 24px 70px rgba(0,0,0,.6);
+}
+#fenster h2{font-size:24px;margin-bottom:4px;color:var(--gold)}
+#fensterZu{
+  position:absolute;top:12px;right:14px;width:32px;height:32px;
+  background:#241f30;color:var(--schrift);border:1px solid var(--rand);
+  border-radius:8px;font-size:20px;line-height:1;cursor:pointer;
+}
+#fensterZu:hover{background:#3a3050}
+
+.hinweis{color:var(--matt);font-size:13px;margin-bottom:14px}
+h3.abschnitt{
+  font-size:12px;text-transform:uppercase;letter-spacing:1.4px;
+  color:var(--matt);margin:20px 0 9px;padding-bottom:5px;
+  border-bottom:1px solid var(--rand);
+}
+
+.gitter{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:9px}
+.ware{
+  display:flex;flex-direction:column;gap:7px;padding:11px 12px;
+  background:#1d1828;border:1px solid var(--rand);border-radius:9px;
+}
+.ware .kopf2{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ware .kopf2 b{font-size:14px}
+.ware p{font-size:12px;color:var(--matt);line-height:1.4}
+.preis{display:flex;flex-wrap:wrap;gap:5px;font-size:12px}
+.preis span{padding:2px 7px;background:#0f0d15;border:1px solid var(--rand);border-radius:5px}
+.preis span.fehlt{border-color:var(--rot);color:var(--rot)}
+button.kauf{
+  padding:7px;background:#2c6b34;color:#eaffe9;
+  border:1px solid #3f9c4b;border-radius:7px;font:inherit;font-size:13px;cursor:pointer;
+}
+button.kauf:hover:not(:disabled){background:#39873f}
+button.kauf:disabled{background:#241f30;border-color:var(--rand);color:#665d75;cursor:not-allowed}
+button.kauf.zweit{background:#2b4a6b;border-color:#3f7bac;color:#e4f2ff}
+button.kauf.zweit:hover:not(:disabled){background:#375f88}
+
+.bergKarte{border-left:3px solid var(--rand)}
+.bergKarte.hier{border-left-color:var(--gold);background:#241d13}
+.bergKarte.zu{opacity:.68}
+
+table.tafel{width:100%;border-collapse:collapse;font-size:13px}
+table.tafel td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
+table.tafel td:first-child{color:var(--matt);width:38%}
+table.tafel kbd{
+  display:inline-block;min-width:24px;padding:2px 6px;margin-right:3px;text-align:center;
+  font:12px/1.35 monospace;background:#0f0d15;border:1px solid var(--rand);
+  border-radius:4px;color:var(--gold);
+}
+
+.gefahr{
+  margin-top:16px;padding:10px 12px;
+  background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.35);border-radius:8px;
+  font-size:12.5px;color:#ffb4b4;
+}
+
+/* ---------------- Touch ---------------- */
+#touch{position:fixed;inset:auto 0 0 0;z-index:12;
+  display:flex;justify-content:space-between;align-items:flex-end;padding:12px;pointer-events:none}
+#touch>div{pointer-events:auto}
+.kreuz{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,54px);gap:5px}
+.kreuz button:nth-child(1){grid-area:1/2}
+.kreuz button:nth-child(2){grid-area:2/1}
+.kreuz button:nth-child(3){grid-area:2/3}
+.kreuz button:nth-child(4){grid-area:2/2}
+.taten{display:grid;grid-template-columns:repeat(2,78px);gap:5px}
+#touch button{
+  background:rgba(36,31,48,.9);color:var(--schrift);
+  border:1px solid var(--rand);border-radius:10px;
+  font:inherit;font-size:13px;height:54px;cursor:pointer;
+}
+#touch button:active{background:#4a3f66}
+
+@media (max-width:880px){
+  .feld{min-width:58px;padding:2px 7px}
+  .feld b{font-size:14px}
+  #status{width:158px;top:60px}
+  .karte{width:78px}
+}

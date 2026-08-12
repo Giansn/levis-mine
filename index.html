@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Levis Mine</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="leinwand"></canvas>
+
+<!-- ============ Kopfleiste ============ -->
+<header id="kopf">
+  <div class="feld"><b id="bergName">Grünhügel</b><span>Berg</span></div>
+  <div class="feld"><b id="tiefe">0 m</b><span>Tiefe</span></div>
+  <div class="feld gold"><b id="goldZahl">0</b><span>Goldstücke</span></div>
+  <div class="feld"><b id="franken">CHF 0</b><span>Wert</span></div>
+  <div class="feld"><b id="stufe">1</b><span>Stufe</span></div>
+  <div class="feld"><b id="arbeiterZahl">0</b><span>Arbeiter</span></div>
+  <div class="lueckefueller"></div>
+  <button class="kopfknopf" id="btnLaden">Laden <kbd>K</kbd></button>
+  <button class="kopfknopf" id="btnBerge">Berge <kbd>M</kbd></button>
+  <button class="kopfknopf" id="btnHilfe">Hilfe <kbd>H</kbd></button>
+  <button class="kopfknopf" id="btnTon" title="Ton">🔊</button>
+</header>
+
+<!-- ============ Statusanzeigen links ============ -->
+<aside id="status">
+  <div class="anzeige">
+    <div class="zeile"><span>Zustand</span><span id="zustandText">100 %</span></div>
+    <div class="rille"><i id="zustandBalken" class="fuellung gruen"></i></div>
+  </div>
+  <div class="anzeige" id="treibstoffBox" hidden>
+    <div class="zeile"><span>Treibstoff</span><span id="treibstoffText">100</span></div>
+    <div class="rille"><i id="treibstoffBalken" class="fuellung blau"></i></div>
+  </div>
+  <div class="anzeige">
+    <div class="zeile"><span>Fracht</span><span id="frachtText">0 / 25</span></div>
+    <div class="rille"><i id="frachtBalken" class="fuellung orange"></i></div>
+  </div>
+  <ul id="fracht"></ul>
+  <div class="lagerKopf">Lager im Haus</div>
+  <ul id="lager"></ul>
+</aside>
+
+<!-- ============ Werkzeug- und Vorratsleiste ============ -->
+<footer id="fuss">
+  <div id="werkzeuge"></div>
+  <div id="vorrat"></div>
+</footer>
+
+<!-- ============ Meldungen ============ -->
+<div id="meldungen"></div>
+
+<!-- ============ Touch-Steuerung ============ -->
+<div id="touch" hidden>
+  <div class="kreuz">
+    <button data-taste="ArrowUp">▲</button>
+    <button data-taste="ArrowLeft">◀</button>
+    <button data-taste="ArrowRight">▶</button>
+    <button data-taste="ArrowDown">▼</button>
+  </div>
+  <div class="taten">
+    <button data-taste=" ">Balken</button>
+    <button data-taste="r">Schiene</button>
+    <button data-taste="f">Dynamit</button>
+    <button data-taste="v">Fahrzeug</button>
+  </div>
+</div>
+
+<!-- ============ Fenster ============ -->
+<div id="schleier" hidden>
+  <div id="fenster">
+    <button id="fensterZu" aria-label="Schliessen">×</button>
+    <h2 id="fensterTitel"></h2>
+    <div id="fensterInhalt"></div>
+  </div>
+</div>
+
+<script src="spiel.js"></script>
+</body>
+</html>
