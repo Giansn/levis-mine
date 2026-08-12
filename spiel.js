@@ -239,8 +239,10 @@ function mittlereHaerte(t){
 }
 
 function grundstein(x, y, t, bonus){
-  const n = 0.62*wertRausch(x, y, 5.5, 1) + 0.38*wertRausch(x, y, 2.1, 7);
-  let s = Math.round(mittlereHaerte(t) + bonus*0.45 + (n - 0.5) * 2.6);
+  // Grobe Nester. Zu feines Rauschen laesst Arten kachelweise wechseln, und
+  // dann liest sich das Feld wieder als Schachbrett.
+  const n = 0.72*wertRausch(x, y, 9.0, 1) + 0.28*wertRausch(x, y, 3.4, 7);
+  let s = Math.round(mittlereHaerte(t) + bonus*0.45 + (n - 0.5) * 1.9);
   // Bis 32 Kacheln nur Erde und Stein. Sonst sperrt eine einzelne
   // Hartstein-Kachel den senkrechten Schacht, bevor der Hammer bezahlbar ist.
   if (t < 32) s = Math.min(2, s);
@@ -1145,19 +1147,32 @@ function baueKachelbild(typ, variante){
 
   // Erznester
   if (g.erz){
+    // Kantige Splitter mit heller und dunkler Facette, das liest sich als
+    // Kristall. Runde Kiesel wirken daneben wie Kaugummi.
     const f = MATERIAL[g.erz].farbe;
-    const n = g.erz === 'gold' ? 5 : 6;
+    const n = g.erz === 'gold' ? 4 : 5;
     for (let i = 0; i < n; i++){
       const rx = hash(variante*31 + i*11, typ*17);
       const ry = hash(typ*23, variante*41 + i*13);
-      const px = 4 + rx*(K-11), py = 4 + ry*(K-11);
-      const gr = 3.4 + hash(i, variante)*2.6;
-      d.fillStyle = 'rgba(0,0,0,.35)';
-      d.beginPath(); d.arc(px+1, py+1.4, gr, 0, 7); d.fill();
+      const mx = 6 + rx*(K-13), my = 6 + ry*(K-13);
+      const gr = 3.2 + hash(i, variante)*3.0;
+      const dreh = hash(i*7, variante*3) * Math.PI*2;
+      const ecke = (k, r) => [mx + Math.cos(dreh + k)*r, my + Math.sin(dreh + k)*r*0.9];
+      const a = ecke(0, gr), b = ecke(2.2, gr*0.95), c = ecke(4.1, gr*0.8);
+      d.fillStyle = 'rgba(0,0,0,.40)';
+      d.beginPath(); d.moveTo(a[0]+1, a[1]+1.6); d.lineTo(b[0]+1, b[1]+1.6);
+      d.lineTo(c[0]+1, c[1]+1.6); d.closePath(); d.fill();
       d.fillStyle = f;
-      d.beginPath(); d.arc(px, py, gr, 0, 7); d.fill();
-      d.fillStyle = 'rgba(255,255,255,.55)';
-      d.beginPath(); d.arc(px - gr*0.3, py - gr*0.35, gr*0.34, 0, 7); d.fill();
+      d.beginPath(); d.moveTo(a[0], a[1]); d.lineTo(b[0], b[1]);
+      d.lineTo(c[0], c[1]); d.closePath(); d.fill();
+      // helle Facette auf der Lichtseite
+      d.fillStyle = 'rgba(255,255,255,.42)';
+      d.beginPath(); d.moveTo(a[0], a[1]); d.lineTo(b[0], b[1]);
+      d.lineTo(mx, my); d.closePath(); d.fill();
+      // dunkle Facette gegenueber
+      d.fillStyle = 'rgba(0,0,0,.28)';
+      d.beginPath(); d.moveTo(b[0], b[1]); d.lineTo(c[0], c[1]);
+      d.lineTo(mx, my); d.closePath(); d.fill();
     }
   }
   if (typ === GAS){
@@ -1498,8 +1513,29 @@ function zeichne(){
         // Hohlraum nur zeichnen, wo er im Berg liegt, sonst scheint der Himmel durch
         if (y >= ober[x]){
           const [cr,cg,cb] = tiefenFarbe(Math.max(0, y - FUSS));
-          ctx.fillStyle = `rgb(${cr*0.34|0},${cg*0.34|0},${cb*0.34|0})`;
+          ctx.fillStyle = `rgb(${cr*0.13|0},${cg*0.12|0},${cb*0.11|0})`;
           ctx.fillRect(px, py, K, K);
+          // Runde Ecken: wo zwei Nachbarn fest sind, waelbt sich Gestein in die
+          // Ecke. Das nimmt dem Negativraum die Rechteckigkeit, und genau daran
+          // haengt der Rastereindruck, nicht am Gestein selbst.
+          const R = K * 0.34;
+          ctx.fillStyle = GESTEIN[tarnung(y)].farbe;
+          const oben2 = fest(x, y-1), unten2 = fest(x, y+1);
+          const li = fest(x-1, y), re = fest(x+1, y);
+          const ecken = [
+            [oben2 && li,  px,     py,     0,        Math.PI/2],
+            [oben2 && re,  px + K, py,     Math.PI/2, Math.PI],
+            [unten2 && re, px + K, py + K, Math.PI,   Math.PI*1.5],
+            [unten2 && li, px,     py + K, Math.PI*1.5, Math.PI*2],
+          ];
+          for (const [ja, ex, ey, w0, w1] of ecken){
+            if (!ja) continue;
+            ctx.beginPath();
+            ctx.moveTo(ex, ey);
+            ctx.arc(ex, ey, R, w0, w1);
+            ctx.closePath();
+            ctx.fill();
+          }
         }
         zeichneBau(x, y, px, py);
         if (!stabil(x,y)){
@@ -1550,6 +1586,15 @@ function zeichne(){
         ctx.lineTo(px + K, py + 3);
         ctx.closePath();
         ctx.fill();
+        // duenne helle Linie auf der Oberkante, sie traegt die Lichtstimmung
+        ctx.strokeStyle = 'rgba(255,236,200,.30)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let n = 0; n <= 4; n++){
+          const hx = px + n*K/4, hy = py - hash(x*7 + n*3, y*13 + n) * K*0.28;
+          if (n) ctx.lineTo(hx, hy); else ctx.moveTo(hx, hy);
+        }
+        ctx.stroke();
       }
     }
   }
