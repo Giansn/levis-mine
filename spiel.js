@@ -1035,7 +1035,52 @@ const zahl = n => Math.round(n).toLocaleString('de-CH');
 /* ========================================================================== */
 
 const kachelBild = {};
-const randBild = [];
+const randBild = {};          // Gesteinsart -> Bild je Randfall
+
+/* Randfaelle nach dem Autotile-Verfahren. Bits, gesetzt heisst Nachbar ist
+   Hohlraum: 1 N, 2 NO, 4 O, 8 SO, 16 S, 32 SW, 64 W, 128 NW.
+
+   Mit nur vier Orthogonalen sind gerade Wand, Aussenecke und Innenecke nicht
+   unterscheidbar, alle Kacheln einer senkrechten Hoehlenwand tragen dieselbe
+   Maske. Daher sahen senkrechte Waende zwangslaeufig gestuft aus. Eine
+   Diagonale ist nur formbestimmend, wenn beide angrenzenden Orthogonalen fest
+   sind; ist eine offen, liegt die Ecke ohnehin frei. Damit schrumpfen die 256
+   rohen Kombinationen auf genau 47 unterscheidbare. */
+const randFall = new Uint8Array(256);
+const fallMaske = [];
+(function baueFalltabelle(){
+  const norm = m => {
+    let r = m;
+    if ((m & 1)  || (m & 4))  r &= ~2;
+    if ((m & 4)  || (m & 16)) r &= ~8;
+    if ((m & 16) || (m & 64)) r &= ~32;
+    if ((m & 64) || (m & 1))  r &= ~128;
+    return r;
+  };
+  const gesehen = new Map();
+  for (let m = 0; m < 256; m++){
+    const n = norm(m);
+    if (!gesehen.has(n)){ gesehen.set(n, fallMaske.length); fallMaske.push(n); }
+    randFall[m] = gesehen.get(n);
+  }
+})();
+const FAELLE = fallMaske.length;
+
+/* Zu welcher Grundart eine Kachel gehoert. Untergrund und Randbild richten sich
+   danach, nicht nach dem Tiefenband: sonst weicht in der Uebergangszone fast
+   jede Kachel vom Band ab, legt ihren Fleck, und es entsteht ein Fleckenraster
+   samt harter waagrechter Naht dort, wo tarnung(y) umspringt. */
+const GRUNDART = {
+  [ERDE]:ERDE, [GEROELL]:ERDE,
+  [STEIN]:STEIN, [ERZ]:STEIN, [KUPFER]:STEIN,
+  [HARTSTEIN]:HARTSTEIN, [BRONZE]:HARTSTEIN, [SILBER]:HARTSTEIN, [SCHATZ]:HARTSTEIN,
+  [GRANIT]:GRANIT, [GOLDERZ]:GRANIT, [FELS]:GRANIT,
+};
+
+const zahlFarbe = hex => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+};
 const VARIANTEN = 8;
 
 /* Farbe heller oder dunkler stellen, ohne eine Bibliothek dafuer */
@@ -1067,7 +1112,7 @@ function baueGrundbild(typ){
     const mx = hash(i*7 + typ, typ*13 + i*3) * S2;
     const my = hash(typ*17 + i*11, i*5 + typ) * S2;
     const rz = hash(i*3 + typ, i*5);
-    d.globalAlpha = 0.05 + rz*0.10;
+    d.globalAlpha = 0.17 + rz*0.34;
     d.fillStyle = rz < 0.5 ? g.korn : ton(g.farbe, 0.06);
     for (const [ox, oy] of umlauf){
       d.beginPath();
@@ -1085,7 +1130,7 @@ function baueGrundbild(typ){
     const mx = hash(i*23 + typ, typ*29 + i) * S2;
     const my = hash(typ*31 + i*19, i*11 + typ) * S2;
     const rz = hash(i*11 + typ, i*13);
-    d.globalAlpha = 0.10 + rz*0.24;
+    d.globalAlpha = 0.30 + rz*0.68;
     d.fillStyle = rz < 0.6 ? g.korn : ton(g.farbe, 0.09);
     for (const [ox, oy] of umlauf){
       d.beginPath(); d.arc(mx+ox, my+oy, 0.8 + rz*2.2, 0, 7); d.fill();
@@ -1103,7 +1148,9 @@ function baueKachelbild(typ, variante){
   const d = c.getContext('2d');
   const g = GESTEIN[typ];
 
-  d.fillStyle = ton(g.farbe, (hash(variante*17+3, typ*29+7) - 0.5) * 0.07);
+  // Der Abstand der Varianten bleibt klein, er soll die Wiederholung brechen
+  // und keinen Flickenteppich erzeugen. Das Vorbild trennt um 3 bis 7 von 255.
+  d.fillStyle = ton(g.farbe, (hash(variante*17+3, typ*29+7) - 0.5) * 0.022);
   d.beginPath();
   for (let n = 0; n <= 13; n++){
     const w = n/13 * Math.PI*2;
@@ -1120,7 +1167,7 @@ function baueKachelbild(typ, variante){
     const rx = hash(variante*97 + i*13, typ*31 + i*7);
     const ry = hash(typ*13 + i*3, variante*57 + i*11);
     const rz = hash(i*5 + variante, typ*7 + i);
-    d.globalAlpha = 0.14 + rz*0.30;
+    d.globalAlpha = 0.17 + rz*0.34;
     d.fillStyle = rz < 0.62 ? g.korn : ton(g.farbe, 0.07);
     d.beginPath();
     d.arc(rx*K, ry*K, 1.1 + rz*3.4, 0, 7);
@@ -1202,47 +1249,88 @@ function baueKachelbild(typ, variante){
 /* Saum fuer die Seiten, die an Hohlraum grenzen. Unregelmaessig, damit die
    Wand gegraben aussieht und nicht geschnitten. Die Maske hat ein Bit je
    Seite: 1 oben, 2 rechts, 4 unten, 8 links. */
-function baueRandbild(maske){
+/* Ein Randbild je Gesteinsart und Fall. Volle Deckung, kein Saum: der Uebergang
+   von Fels zu Hohlraum wird INNERHALB der Kachel gemalt, nicht an ihrem Rand.
+   Dazu ein Abstandsfeld zum Hohlraum, aus dem die Helligkeit folgt. Der helle
+   Saum knapp innerhalb der Bruchkante traegt die Lichtstimmung. */
+function baueRandbild(typ, fall){
+  const m = fallMaske[fall];
   const c = document.createElement('canvas');
   c.width = c.height = K;
   const d = c.getContext('2d');
-  for (let s = 0; s < 4; s++){
-    if (!(maske & (1 << s))) continue;
-    d.save();
-    d.translate(K/2, K/2);
-    d.rotate(s * Math.PI/2);            // 0 oben, dann im Uhrzeigersinn
-    d.translate(-K/2, -K/2);
-    const g = d.createLinearGradient(0, 0, 0, K*0.42);
-    g.addColorStop(0,   'rgba(0,0,0,.50)');
-    g.addColorStop(0.45,'rgba(0,0,0,.20)');
-    g.addColorStop(1,   'rgba(0,0,0,0)');
-    d.fillStyle = g;
-    d.beginPath();
-    d.moveTo(-1, -1);
-    d.lineTo(K+1, -1);
-    // Wellenlinie nach innen, aus der Maske bestimmt und darum stabil
-    for (let i = 5; i >= 0; i--){
-      const px = i/5 * K;
-      const tief = 5 + hash(maske*31 + i*7 + s*13, i*3 + s) * K*0.30;
-      d.lineTo(px, tief);
+  const bild = d.createImageData(K, K);
+  const dat = bild.data;
+
+  const g = GESTEIN[typ];
+  const grund = zahlFarbe(g.farbe), korn = zahlFarbe(g.korn);
+  const lippe = grund.map(k => Math.min(255, k * 1.42));
+  const hohl = [10, 9, 8];
+  const R = K * 0.42;
+  const oN = m & 1, oO = m & 4, oS = m & 16, oW = m & 64;
+
+  for (let y = 0; y < K; y++){
+    for (let x = 0; x < K; x++){
+      const dN = y + 0.5, dO = K - x - 0.5, dS = K - y - 0.5, dW = x + 0.5;
+      let ab = 1e9;
+      if (oN) ab = Math.min(ab, dN);
+      if (oO) ab = Math.min(ab, dO);
+      if (oS) ab = Math.min(ab, dS);
+      if (oW) ab = Math.min(ab, dW);
+      // Aussenecke: zwei offene Seiten, das Gestein wird dort abgerundet
+      const paare = [[oN,oW,dN,dW], [oN,oO,dN,dO], [oS,oO,dS,dO], [oS,oW,dS,dW]];
+      for (let i = 0; i < 4; i++){
+        const [a, b, da, db] = paare[i];
+        if (a && b && da < R && db < R) ab = Math.min(ab, R - Math.hypot(R-da, R-db));
+      }
+      // Innenecke: offene Diagonale bei zwei festen Orthogonalen
+      if (m & 128) ab = Math.min(ab, Math.hypot(dW, dN));
+      if (m & 2)   ab = Math.min(ab, Math.hypot(dO, dN));
+      if (m & 8)   ab = Math.min(ab, Math.hypot(dO, dS));
+      if (m & 32)  ab = Math.min(ab, Math.hypot(dW, dS));
+      // Bruchkante unregelmaessig machen, sonst wirkt sie gedrechselt
+      ab += (wertRausch(x + fall*37, y + fall*23, 5.5, fall + 11) - 0.5) * K * 0.22;
+
+      const t = Math.max(0, Math.min(1, ab / (K * 0.46)));
+      let r, gr, b;
+      if (t < 0.18){                       // Hohlraum bis heller Saum
+        const u = t / 0.18;
+        r  = hohl[0] + (lippe[0] - hohl[0]) * u;
+        gr = hohl[1] + (lippe[1] - hohl[1]) * u;
+        b  = hohl[2] + (lippe[2] - hohl[2]) * u;
+      } else {                             // Saum zurueck auf den Grundton
+        const u = (t - 0.18) / 0.82;
+        r  = lippe[0] + (grund[0] - lippe[0]) * u;
+        gr = lippe[1] + (grund[1] - lippe[1]) * u;
+        b  = lippe[2] + (grund[2] - lippe[2]) * u;
+      }
+      // Koernung, damit die Flaeche nicht glatt wirkt
+      const n = wertRausch(x + fall*13, y + fall*29, 2.6, fall + 3);
+      const k = 0.88 + n * 0.24;
+      r *= k; gr *= k; b *= k;
+      if (n > 0.72 && t > 0.3){            // vereinzelte dunkle Krumen
+        r = r*0.7 + korn[0]*0.3; gr = gr*0.7 + korn[1]*0.3; b = b*0.7 + korn[2]*0.3;
+      }
+      const i = (y*K + x) * 4;
+      dat[i]   = Math.max(0, Math.min(255, r));
+      dat[i+1] = Math.max(0, Math.min(255, gr));
+      dat[i+2] = Math.max(0, Math.min(255, b));
+      dat[i+3] = 255;                      // volle Deckung
     }
-    d.closePath();
-    d.fill();
-    // helle Lippe direkt an der Bruchkante
-    d.fillStyle = 'rgba(255,240,215,.09)';
-    d.fillRect(0, 0, K, 1.6);
-    d.restore();
   }
+  d.putImageData(bild, 0, 0);
   return c;
 }
 
 function baueAlleKachelbilder(){
-  for (const typ of [ERDE, STEIN, HARTSTEIN, GRANIT]) grundBild[typ] = baueGrundbild(typ);
+  for (const typ of [ERDE, STEIN, HARTSTEIN, GRANIT]){
+    grundBild[typ] = baueGrundbild(typ);
+    randBild[typ] = [];
+    for (let f = 0; f < FAELLE; f++) randBild[typ].push(baueRandbild(typ, f));
+  }
   for (const typ of [ERDE, GEROELL, STEIN, HARTSTEIN, GRANIT, FELS, GAS, ERZ, KUPFER, BRONZE, SILBER, GOLDERZ, SCHATZ]){
     kachelBild[typ] = [];
     for (let v = 0; v < VARIANTEN; v++) kachelBild[typ].push(baueKachelbild(typ, v));
   }
-  for (let m = 0; m < 16; m++) randBild[m] = baueRandbild(m);
 }
 
 /* ========================================================================== */
@@ -1466,33 +1554,6 @@ function hohlraumFarbe(y){
   return `rgb(${r*0.13|0},${g*0.12|0},${b*0.11|0})`;
 }
 
-/* Aussenecken abrunden. Wo Gestein in den Hohlraum vorspringt, stand bisher eine
-   harte rechtwinklige Ecke. Die Innenecken werden in der Zeichenschleife von der
-   Hohlraumseite her gewoelbt, hier kommt die fehlende Haelfte dazu: erst beide
-   zusammen loesen die Silhouette einer Masse vom Gitter. */
-function rundeAussenecken(x, y, px, py){
-  const li = fest(x-1, y), re = fest(x+1, y), ob = fest(x, y-1), un = fest(x, y+1);
-  if (li && re && ob && un) return;                    // mitten im Gestein
-  ctx.fillStyle = hohlraumFarbe(y);
-  const ecken = [
-    [!ob && !li, px,     py,     px + 0, py + 0, Math.PI,       Math.PI*1.5,  1,  1],
-    [!ob && !re, px + K, py,     0,      0,      Math.PI*1.5,   Math.PI*2,   -1,  1],
-    [!un && !re, px + K, py + K, 0,      0,      0,             Math.PI*0.5, -1, -1],
-    [!un && !li, px,     py + K, 0,      0,      Math.PI*0.5,   Math.PI,      1, -1],
-  ];
-  for (let n = 0; n < 4; n++){
-    const [ja, ex, ey, , , a0, a1, sx, sy] = ecken[n];
-    if (!ja) continue;
-    // Der Radius schwankt je Ort, damit die Rundung nicht mechanisch gleich wirkt
-    const R = K * (0.26 + hash(x*13 + n*7, y*17 + n*3) * 0.16);
-    ctx.beginPath();
-    ctx.moveTo(ex, ey);
-    ctx.arc(ex + sx*R, ey + sy*R, R, a0, a1);
-    ctx.closePath();
-    ctx.fill();
-  }
-}
-
 function zeichneDunkelheit(){
   // Tiefe unter der Bergoberflaeche der eigenen Spalte, nicht unter der Basis.
   // Sonst bleibt es hell, wenn Levi waagrecht in die Flanke graebt.
@@ -1559,27 +1620,6 @@ function zeichne(){
           const [cr,cg,cb] = tiefenFarbe(Math.max(0, y - FUSS));
           ctx.fillStyle = `rgb(${cr*0.13|0},${cg*0.12|0},${cb*0.11|0})`;
           ctx.fillRect(px, py, K, K);
-          // Runde Ecken: wo zwei Nachbarn fest sind, waelbt sich Gestein in die
-          // Ecke. Das nimmt dem Negativraum die Rechteckigkeit, und genau daran
-          // haengt der Rastereindruck, nicht am Gestein selbst.
-          const R = K * 0.34;
-          ctx.fillStyle = GESTEIN[tarnung(y)].farbe;
-          const oben2 = fest(x, y-1), unten2 = fest(x, y+1);
-          const li = fest(x-1, y), re = fest(x+1, y);
-          const ecken = [
-            [oben2 && li,  px,     py,     0,        Math.PI/2],
-            [oben2 && re,  px + K, py,     Math.PI/2, Math.PI],
-            [unten2 && re, px + K, py + K, Math.PI,   Math.PI*1.5],
-            [unten2 && li, px,     py + K, Math.PI*1.5, Math.PI*2],
-          ];
-          for (const [ja, ex, ey, w0, w1] of ecken){
-            if (!ja) continue;
-            ctx.beginPath();
-            ctx.moveTo(ex, ey);
-            ctx.arc(ex, ey, R, w0, w1);
-            ctx.closePath();
-            ctx.fill();
-          }
         }
         zeichneBau(x, y, px, py);
         if (!stabil(x,y)){
@@ -1594,29 +1634,40 @@ function zeichne(){
         }
         continue;
       }
-      // durchgehender Untergrund, nach Weltkoordinaten angeschnitten
-      const grund = grundBild[tarnung(y)];
-      if (grund){
-        const gx = (((x % GRUND_KACHELN) + GRUND_KACHELN) % GRUND_KACHELN) * K;
-        const gy = (((y % GRUND_KACHELN) + GRUND_KACHELN) % GRUND_KACHELN) * K;
-        ctx.drawImage(grund, gx, gy, K, K, px, py, K, K);
+      // Acht Nachbarn, reduziert auf einen von 47 Randfaellen
+      let maske = 0;
+      if (!fest(x,   y-1)) maske |= 1;
+      if (!fest(x+1, y-1)) maske |= 2;
+      if (!fest(x+1, y  )) maske |= 4;
+      if (!fest(x+1, y+1)) maske |= 8;
+      if (!fest(x,   y+1)) maske |= 16;
+      if (!fest(x-1, y+1)) maske |= 32;
+      if (!fest(x-1, y  )) maske |= 64;
+      if (!fest(x-1, y-1)) maske |= 128;
+      const fall = randFall[maske];
+      // Grundart der Kachel selbst, nicht des Tiefenbands
+      const grundTyp = GRUNDART[typ === GAS ? tarnung(y) : typ] || tarnung(y);
+
+      if (fall > 0 && randBild[grundTyp]){
+        // Randkachel: der Uebergang steckt im Bild, kein Untergrund darunter
+        ctx.drawImage(randBild[grundTyp][fall], px, py);
+      } else {
+        // Innen im Gestein: durchgehender Untergrund nach Weltkoordinaten
+        const grund = grundBild[grundTyp];
+        if (grund){
+          const gx = (((x % GRUND_KACHELN) + GRUND_KACHELN) % GRUND_KACHELN) * K;
+          const gy = (((y % GRUND_KACHELN) + GRUND_KACHELN) % GRUND_KACHELN) * K;
+          ctx.drawImage(grund, gx, gy, K, K, px, py, K, K);
+        }
       }
-      // Gestein als Fleck darauf, laeuft in die Nachbarn ueber. Entspricht die
-      // Art dem Untergrund, entfaellt der Fleck, sonst zeichnete seine leichte
-      // Helligkeitsstreuung die Kacheln wieder nach.
+      // Nur noch Erz und Fundstuecke legen einen Fleck. Gewoehnliches Gestein
+      // traegt der Untergrund seiner eigenen Art, das laesst keine Kachel stehen.
       const zTyp = typ === GAS ? tarnung(y) : typ;
       const gg = GESTEIN[zTyp];
-      if (zTyp !== tarnung(y) || gg.erz || gg.schatz){
+      if (gg.erz || gg.schatz){
         const bilder = kachelBild[zTyp];
         if (bilder) ctx.drawImage(bilder[(hash(x,y)*VARIANTEN)|0], px, py);
       }
-      // Saum an jeder Seite, die an Hohlraum grenzt
-      let maske = 0;
-      if (!fest(x, y-1)) maske |= 1;
-      if (!fest(x+1, y)) maske |= 2;
-      if (!fest(x, y+1)) maske |= 4;
-      if (!fest(x-1, y)) maske |= 8;
-      if (maske) ctx.drawImage(randBild[maske], px, py);
       // Erdkamm auf jede freiliegende Oberkante. Die Zeile darueber ist
       // bereits gezeichnet, darum genuegt ein Durchgang. Bricht die Treppe
       // der Bergflanke und laesst Stollenboeden gegraben aussehen.
@@ -1641,7 +1692,6 @@ function zeichne(){
         ctx.stroke();
       }
       // zuletzt die vorspringenden Ecken abrunden, damit sie ueber allem liegen
-      rundeAussenecken(x, y, px, py);
     }
   }
 

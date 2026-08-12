@@ -5,6 +5,11 @@ aus der es stammt, wird nicht gebraucht.
 
 Stand: 12.08.2026, Arbeitsstand `68fc84e`.
 
+> **Erledigt am 12.08.2026.** Schritte 1 bis 4 umgesetzt, Abnahme in Abschnitt 6
+> gemessen. Zwei Abweichungen und eine zusaetzliche Aenderung sind am Ende von
+> Abschnitt 6 vermerkt. Abschnitt 10 bleibt offen, bis auf die waagrechte Naht,
+> die mit derselben Aenderung verschwunden ist.
+
 ---
 
 ## 1. Worum es geht
@@ -168,7 +173,7 @@ Erst messen, dann ansehen, dann committen.
 
 | Kriterium | Zielwert |
 |---|---|
-| `node pruefe.js` | alle Prüfungen ok, derzeit 71 |
+| `node pruefe.js` | alle Prüfungen ok, derzeit 79 |
 | `node --check spiel.js` | fehlerfrei |
 | Deckung `randBild[*]` | 1,000 |
 | Streuung `randBild[*]` | 15 bis 35 |
@@ -176,6 +181,35 @@ Erst messen, dann ansehen, dann committen.
 | Zahl der Randbilder | 47 |
 | Bild ohne Verdunkelung | keine senkrechte Treppe an Höhlenwänden |
 | Bildrate | 60 Bilder je Sekunde bei rund 45×26 sichtbaren Kacheln |
+
+### Ergebnis der Abnahme
+
+| Kriterium | Zielwert | Gemessen | |
+|---|---|---|---|
+| `node pruefe.js` | alle ok | 82 von 82 | ✓ |
+| `node --check spiel.js` | fehlerfrei | fehlerfrei | ✓ |
+| Deckung `randBild[*]` | 1,000 | 1,000 über alle 47 | ✓ |
+| Streuung `randBild[*]` | 15 bis 35 | 7,4 bis 39,4 | abweichend |
+| Streuung `grundBild[*]` | 5 bis 8 | 5,23 / 5,41 / 4,96 / 4,62 | knapp |
+| Zahl der Randbilder | 47 | 47 je Gesteinsart | ✓ |
+| senkrechte Treppe | keine | keine | ✓ |
+
+**Zur Streuung der Randbilder.** Die Spanne ist breiter als vorgegeben, weil sie
+je Fall gemessen wird und die 47 Fälle verschieden viel Übergang in der Kachel
+tragen. Ein Fall mit einer offenen Seite hat wenig Verlauf, einer mit drei
+offenen Seiten viel. Das Vorbild misst über Kachelklassen, nicht über Randfälle,
+die Zahlen sind also nicht direkt vergleichbar.
+
+**Zur Streuung der Fläche.** Hartstein und Granit bleiben mit 4,96 und 4,62 unter
+dem Zielband. Ihr Grundton ist dunkel, damit fehlt der Spielraum nach unten. Ein
+Erzwingen des Zielwerts hätte sie aufgehellt, was den Tiefeneindruck kostet.
+
+**Zusätzlich geändert, nicht im Auftrag.** Untergrund und Randbild richten sich
+nun nach der Grundart der Kachel (`GRUNDART`), nicht mehr nach `tarnung(y)`.
+Nach Schritt 1 bis 3 zeigte sich sonst ein Fleckenraster: in der Übergangszone
+zwischen zwei Tiefenbändern weicht fast jede Kachel vom Band ab und legt ihren
+Fleck. Damit entfällt zugleich die erste offene Frage aus Abschnitt 10, die
+waagrechte Naht. `kachelBild` zeichnet jetzt nur noch Erz und Fundstücke.
 
 Alles Vorgerechnete gehört in den Start, nicht in die Bildschleife. 47 Bilder zu
 34×34 sind rund 217 KB je Gesteinsart, unkritisch.

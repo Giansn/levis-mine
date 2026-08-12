@@ -19,6 +19,11 @@ function ctxStub(){
   return new Proxy({}, {
     get(t, p){
       if (p === 'createLinearGradient' || p === 'createRadialGradient') return () => grad;
+      // Die Randbilder werden bildpunktweise gebaut, dafuer braucht es echte Daten
+      if (p === 'createImageData') return (w, h) =>
+        ({ width: w, height: h, data: new Uint8ClampedArray(w*h*4) });
+      if (p === 'getImageData') return (sx, sy, w, h) =>
+        ({ width: w, height: h, data: new Uint8ClampedArray(w*h*4) });
       if (p === 'canvas') return { width: 0, height: 0 };
       if (p in eigen) return eigen[p];
       return () => undefined;
@@ -452,7 +457,16 @@ pruefe('Die Belohnung waechst mit',
 /* ------------------------------ Zeichnen --------------------------------- */
 try { lies('zeichne(); hud()'); } catch (e){ fehler.push('zeichne/hud: ' + e.stack); }
 pruefe('Zeichnen und HUD laufen durch', !fehler.some(f => f.includes('zeichne/hud')));
-pruefe('Randbilder gebaut', lies('randBild.length') === 16);
+pruefe('47 Randfaelle statt 16', lies('FAELLE') === 47, lies('FAELLE') + ' Faelle');
+pruefe('Randbilder je Gesteinsart gebaut',
+  [lies('ERDE'), lies('STEIN'), lies('HARTSTEIN'), lies('GRANIT')]
+    .every(t => lies(`randBild[${t}] && randBild[${t}].length`) === 47));
+/* Der eigentliche Befund: mit vier Orthogonalen waren gerade Wand, Aussenecke
+   und Innenecke dieselbe Maske, darum sahen senkrechte Waende gestuft aus. */
+pruefe('Wand, Aussenecke und Innenecke sind unterscheidbar',
+  lies('new Set([randFall[64], randFall[65], randFall[128]]).size') === 3);
+pruefe('Eine Diagonale zaehlt nur bei zwei festen Orthogonalen',
+  lies('randFall[128] !== randFall[128 | 1]') === true);
 pruefe('Kachelvarianten gebaut', lies('kachelBild[ERDE].length') === lies('VARIANTEN'),
   lies('VARIANTEN') + ' Varianten');
 
