@@ -181,9 +181,18 @@ const aufwaerts = lies(`(() => {
   bau[idx(cx, oy)] = 0;
   return {cx, oy, vorher: boden[idx(cx, oy)]};
 })()`);
+/* Erst ruhigstellen: mit der traegen Physik traegt Restschwung Levi sonst
+   seitlich weg, die Zielkachel wechselt und der Fortschritt beginnt neu.
+   Danach abbrechen, sobald die Kachel faellt. */
+lies('P.vx = 0; P.vy = 0');
 lies('taste.auf = true');
-try { for (let i = 0; i < 400; i++) lies('aktualisiere(1/60)'); }
-catch (e){ fehler.push('beim Graben nach oben: ' + e.stack); }
+try {
+  for (let i = 0; i < 600; i++){
+    lies('aktualisiere(1/60)');
+    if (lies(`boden[idx(${aufwaerts.cx}, ${aufwaerts.oy})]`) === 0) break;
+    lies('P.vx = 0');
+  }
+} catch (e){ fehler.push('beim Graben nach oben: ' + e.stack); }
 lies('taste.auf = false');
 pruefe('Levi bricht die Kachel ueber dem Kopf',
   lies(`boden[idx(${aufwaerts.cx}, ${aufwaerts.oy})]`) === 0,
