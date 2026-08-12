@@ -326,6 +326,43 @@ pruefe('Beide Welten wiederhergestellt', lies('Object.keys(welten).length') === 
 pruefe('Abgebaute Kachel bleibt abgebaut', lies('boden[idx(BASIS_X, basisY())]') === 0);
 pruefe('Profil nach dem Laden wieder da', lies('ober.length') === B);
 
+/* ------------------------ Aufrufpunkte vorhanden ------------------------- */
+/* Ein zeilenweises Entfernen hat einmal fensterZu mitgelöscht. node --check
+   fand nichts, weil es syntaktisch gueltig blieb. Darum diese Liste. */
+const AUFRUFE = ['fenster','fensterZu','zeigeLaden','zeigeBerge','zeigeHilfe','kaufe','verkaufe',
+  'wechsleBerg','setzeBalken','legeSchiene','zuendeDynamit','sendeWagen','nutzeSeilwinde',
+  'wechsleFahrzeug','speichere','lade','neuAnfangen','zeichne','hud','ladenListe','zeigeAbsturz'];
+const fehlend = AUFRUFE.filter(f => lies('typeof ' + f) !== 'function');
+pruefe('Alle Aufrufpunkte vorhanden', fehlend.length === 0,
+  fehlend.length ? 'fehlt: ' + fehlend.join(', ') : AUFRUFE.length + ' Funktionen');
+
+lies('zeigeHilfe()');
+pruefe('Fenster geht auf', lies('document.getElementById("schleier").hidden') === false);
+lies('fensterZu()');
+pruefe('Fenster geht zu', lies('document.getElementById("schleier").hidden') === true);
+
+/* -------------------------------- Lampe ---------------------------------- */
+pruefe('Lampe beginnt auf Stufe 1', lies('S.lampe') === 0);
+pruefe('Lampenstufen leuchten weiter', lies('LAMPEN.every((l,i) => i === 0 || l.weite > LAMPEN[i-1].weite)'),
+  lies('LAMPEN.map(l => l.weite).join(" / ")'));
+lies('S.gold = 5000; S.lager.kupfer = 40; S.lager.silber = 40');
+lies('zeigeLaden()');
+pruefe('Laden bietet die naechste Lampe an',
+  lies(`document.getElementById('fensterInhalt').innerHTML.includes(LAMPEN[1].name)`) === true,
+  lies('LAMPEN[1].name'));
+const goldVorLampe = lies('S.gold');
+lies('kaufe("lampe")');
+pruefe('Lampe steigt eine Stufe', lies('S.lampe') === 1);
+pruefe('Lampe kostet Gold', lies('S.gold') === goldVorLampe - lies('LAMPEN[1].preis.gold'),
+  goldVorLampe + ' auf ' + lies('S.gold'));
+lies('kaufe("lampe"); kaufe("lampe"); kaufe("lampe"); kaufe("lampe")');
+pruefe('Lampe nicht ueber die letzte Stufe hinaus', lies('S.lampe') === lies('LAMPEN.length - 1'),
+  'Stufe ' + (lies('S.lampe')+1) + ' von ' + lies('LAMPEN.length'));
+lies('zeigeLaden()');
+pruefe('Bei der besten Lampe steht Beste Stufe',
+  lies(`document.getElementById('fensterInhalt').innerHTML.includes('Beste Stufe')`) === true);
+lies('S.lampe = 0; fensterZu()');
+
 /* ------------------------------ Zeichnen --------------------------------- */
 try { lies('zeichne(); hud()'); } catch (e){ fehler.push('zeichne/hud: ' + e.stack); }
 pruefe('Zeichnen und HUD laufen durch', !fehler.some(f => f.includes('zeichne/hud')));

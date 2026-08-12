@@ -90,6 +90,7 @@ const LADEN = [
    text:'Bricht Hartstein, Bronze und Silber.', preis:{gold:70, erz:8, kupfer:5}},
   {id:'nagel', art:'werkzeug', name:'Grosser Hammer & Nagel', stufe:3,
    text:'Bricht Granit und Golderz, das tiefste Gestein.', preis:{gold:180, erz:14, bronze:6}},
+  {id:'lampe', art:'lampe', stufe:1, name:'Lampe', text:''},
   {id:'dynamit', art:'stapel', anzahl:1, name:'Dynamit', stufe:1,
    text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:10}},
   {id:'balken', art:'stapel', anzahl:20, name:'Stützbalken ×20', stufe:1,
@@ -105,6 +106,15 @@ const LADEN = [
 ];
 
 const STUFEN = [0, 150, 400, 900, 1800, 3200, 5000];
+
+/* Die Lampe bestimmt, wie weit Levi im Berg sieht. Jede Stufe kostet mehr
+   und leuchtet weiter, gemessen in Kacheln. */
+const LAMPEN = [
+  {name:'Helmlampe',          weite:5.0},
+  {name:'Karbidlampe',        weite:7.4,  preis:{gold:40}},
+  {name:'Starke Grubenlampe', weite:10.2, preis:{gold:130, kupfer:8}},
+  {name:'Scheinwerfer',       weite:13.8, preis:{gold:340, silber:10}},
+];
 
 /* --------------------------------- Physik -------------------------------- */
 const G          = 34;    // Schwerkraft in Kacheln/s²
@@ -129,7 +139,7 @@ const S = {
   lager: {erz:0, kupfer:0, bronze:0, silber:0, gold:0},
   werkzeuge:{schaufel:120, pickel:95},
   dynamit:0, balken:20, schienen:0, seilwinde:2,
-  wagen:false, bohrer:false, imFahrzeug:false,
+  wagen:false, bohrer:false, imFahrzeug:false, lampe:0,
   treibstoff:100, leben:100,
   tiefstes:0, funk:[], gewonnen:false, ton:true,
 };
@@ -1331,8 +1341,11 @@ function zeichneLevi(){
 /* Kleiner Lichtkreis, darin alles klar zu sehen, danach ein langer
    schleichender Uebergang ins Dunkel. */
 function zeichneDunkelheit(){
-  const t = (P.y + P.h/2) - basisY();
-  const a = Math.max(0, Math.min(0.95, (t/14) * 0.95));
+  // Tiefe unter der Bergoberflaeche der eigenen Spalte, nicht unter der Basis.
+  // Sonst bleibt es hell, wenn Levi waagrecht in die Flanke graebt.
+  const cx = Math.max(0, Math.min(BREITE-1, Math.floor(P.x + P.b/2)));
+  const t = (P.y + P.h/2) - ober[cx];
+  const a = Math.max(0, Math.min(0.95, (t/10) * 0.95));
   if (a < 0.02) return;
   dctx.clearRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'source-over';
@@ -1340,7 +1353,7 @@ function zeichneDunkelheit(){
   dctx.fillRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'destination-out';
   const sx = (P.x + P.b/2)*K - kamera.x, sy = (P.y + P.h/2)*K - kamera.y;
-  const r = K * (S.imFahrzeug ? 7.6 : 6.2);
+  const r = K * (LAMPEN[S.lampe].weite + (S.imFahrzeug ? 1.6 : 0));
   const g = dctx.createRadialGradient(sx, sy, 0, sx, sy, r);
   g.addColorStop(0,    'rgba(0,0,0,1)');      // Kern: voll sichtbar
   g.addColorStop(0.34, 'rgba(0,0,0,1)');
@@ -1531,6 +1544,7 @@ function hud(){
     ['Balken', S.balken, '␣'],
     ['Schienen', S.schienen, 'R'],
     ['Seilwinde', S.seilwinde, 'L'],
+    ['Lampe', (S.lampe+1) + '/' + LAMPEN.length, 'K'],
     ['Fahrzeug', S.bohrer ? (S.imFahrzeug ? 'AN' : 'aus') : '–', 'V'],
   ].map(([n, v, t]) => `<div class="vorratKarte ${v === 0 || v === '–' ? 'null' : ''}"><b>${v}</b>${n} <kbd>${t}</kbd></div>`).join('');
 }
@@ -1567,8 +1581,25 @@ function fenster(titel, html){
   for (const k in taste) taste[k] = false;
 }
 
+function fensterZu(){ schleier.hidden = true; }
 
 /* --------------------------------- Laden --------------------------------- */
+
+const kommaZahl = n => n.toFixed(1).replace('.', ',');
+
+/* Die Lampe ist ein Stufenkauf, Name und Preis haengen davon ab, welche
+   Stufe als naechste kommt. Darum wird der Ladeneintrag hier aufgeloest. */
+function ladenListe(){
+  return LADEN.map(w => {
+    if (w.art !== 'lampe') return w;
+    const naechste = LAMPEN[S.lampe + 1];
+    if (!naechste) return {...w, name:LAMPEN[S.lampe].name, fertig:true, preis:{},
+      text:'Die stärkste Lampe brennt schon, ' + kommaZahl(LAMPEN[S.lampe].weite) + ' Kacheln weit.'};
+    return {...w, name:naechste.name, preis:naechste.preis,
+      text:'Leuchtet ' + kommaZahl(naechste.weite) + ' statt ' + kommaZahl(LAMPEN[S.lampe].weite) +
+           ' Kacheln weit. Im Berg siehst du mehr vom Stollen.'};
+  });
+}
 
 function habeGenug(preis){
   for (const [k, v] of Object.entries(preis)){
@@ -1588,12 +1619,12 @@ function preisHtml(preis){
 
 function zeigeLaden(){
   const st = stufe();
-  const waren = LADEN.map(w => {
+  const waren = ladenListe().map(w => {
     const gesperrt = (w.stufe && st < w.stufe) || (w.verdient && S.verdient < w.verdient);
-    const schonDa = w.art === 'einmal' && S[w.id];
+    const schonDa = (w.art === 'einmal' && S[w.id]) || w.fertig;
     const bezahlbar = habeGenug(w.preis);
     let knopfText = 'Kaufen';
-    if (schonDa) knopfText = 'Gehört dir';
+    if (schonDa) knopfText = w.fertig ? 'Beste Stufe' : 'Gehört dir';
     else if (w.stufe && st < w.stufe) knopfText = 'Ab Stufe ' + w.stufe;
     else if (w.verdient && S.verdient < w.verdient) knopfText = 'Ab ' + w.verdient + ' verdient';
     else if (!bezahlbar) knopfText = 'Zu teuer';
@@ -1622,13 +1653,14 @@ function zeigeLaden(){
 }
 
 function kaufe(id){
-  const w = LADEN.find(x => x.id === id);
-  if (!w || !habeGenug(w.preis)) return;
+  const w = ladenListe().find(x => x.id === id);
+  if (!w || w.fertig || !habeGenug(w.preis)) return;
   for (const [k, v] of Object.entries(w.preis)){
     if (k === 'gold') S.gold -= v; else S.lager[k] -= v;
   }
   if (w.art === 'werkzeug') S.werkzeuge[id] = WZ[id].halt;
   else if (w.art === 'stapel') S[id] += w.anzahl;
+  else if (w.art === 'lampe') S.lampe++;
   else S[id] = true;
 
   klang('kaufen');
@@ -1731,6 +1763,9 @@ function zeigeHilfe(){
         gegraben wird nach innen und nach unten. Die Tiefe zählt ab der Basis.</td></tr>
       <tr><td>Werkzeug</td><td>Schaufel bricht Erde, Pickel bricht Stein, Hammer und Meissel brechen Hartstein,
         der grosse Hammer mit Nagel bricht Granit. Jedes Werkzeug nutzt sich ab und muss ersetzt werden.</td></tr>
+      <tr><td>Lampe</td><td>Je tiefer du im Berg steckst, desto weniger siehst du. Wie weit dein
+        Licht reicht, hängt an der Lampe: ${LAMPEN.map(l => l.name + ' ' + kommaZahl(l.weite)).join(', ')} Kacheln.
+        Bessere Lampen kaufst du im Laden.</td></tr>
       <tr><td>Dynamit</td><td>Sprengt alles im Umkreis und ist danach weg.</td></tr>
       <tr><td>Stützbalken</td><td>Halten den Stollen im Umkreis von ${STUETZ_R} Kacheln. Wo rote Risse zu sehen sind,
         fehlt die Stütze und die Decke kommt herunter. Balken sind ausserdem Leitern.</td></tr>
