@@ -67,9 +67,14 @@ mit derselben Rechnung ausgewertet. Rezept in Abschnitt 8.
 | Kanäle je ID | 4, lückenlos |
 | Bilder je ID | meist 1, selten bis 5 (Abbaustufen) |
 | Kachelmass | 659 von 660 exakt 100×100 |
-| IDs für `tunnel` | 80 |
+| IDs für `tunnel` | **47** |
 | IDs für `top_tunnel` | 13 |
-| IDs für `dirt` | 5 |
+| IDs für `dirt` | 1 |
+
+Gezählt an `super-motherload-analysis/name-map/tile_ids.csv`, 128 IDs, 660 Grafiken.
+Eine frühere Angabe von 80 Tunnel-IDs war falsch, dort waren 320 Namen durch die
+vier Kanäle geteilt worden, ohne die Abbaustufen zu berücksichtigen. Richtig sind
+**47**, und die IDs liegen als `1` plus lückenloser Block `257`–`302`.
 
 **`c0`–`c3` sind vier vollwertige Varianten, keine Viertel.** Alle vier gleich
 gross, in null von 164 Gruppen als 2×2-Block im Atlas benachbart, stattdessen
@@ -118,9 +123,10 @@ Bei uns ist der Übergang die Zellgrenze selbst.
 links, das ergibt 16 Fälle. Damit ist eine gerade Wand von einer Aussenecke und
 einer Innenecke **nicht unterscheidbar**: alle Kacheln einer senkrechten Höhlenwand
 tragen dieselbe Maske und bekommen dasselbe Bild. Deshalb sehen senkrechte Wände
-zwangsläufig wie Treppen aus. 80 Rand-IDs beim Vorbild sind nur erklärbar, wenn die
-Diagonalen mitzählen. Das ist Autotiling, der veröffentlichte Standardsatz umfasst
-47 unterscheidbare Fälle.
+zwangsläufig wie Treppen aus. Das Vorbild führt **genau 47** Tunnelfälle, und der
+veröffentlichte Standardsatz für Autotiling mit Diagonalen umfasst **genau 47**
+Fälle. Die Übereinstimmung ist keine Schätzung, sondern gezählt. Der Fallsatz aus
+Schritt 1 dieser Anleitung ist damit belegt, nicht bloss plausibel.
 
 **Varianten sind nicht der Hebel.** Beim Vorbild unterscheiden sich die vier
 Varianten um 3 bis 7 von 255, also kaum. Sie brechen die exakte Wiederholung, ohne
@@ -285,3 +291,61 @@ rechnen, Formel in Abschnitt 3.
 - Beim Vorbild ist die Basis aus benannten Einzelteilen zusammengesetzt,
   `fuelGauge`, `refineryConveyor`, `repairArm`, `shopBelts`, `shopDoor`. Unser Haus
   ist ein starres Bild.
+
+## 11. Nachtrag: Namenszuordnung und Ausführbare
+
+Quellen: `super-motherload-analysis/name-map/` (CSV je Cluster, `tile_ids.csv`,
+`summary.json`) und `super-motherload-analysis/dll-mech/REPORT.md`.
+
+### 11.1 Der Fallsatz ist belegt
+
+`tile_ids.csv`, 128 IDs, 660 Grafiken:
+
+| Label | IDs | Grafiken |
+|---|---:|---:|
+| `tunnel` | **47** | 320 |
+| ohne Label | 27 | 108 |
+| `top_tunnel` | **13** | 52 |
+| `dirt` | 1 | 20 |
+| übrige, je 1 bis 2 IDs | 40 | 160 |
+
+Alle 47 Tunnel-IDs führen vier Kanäle. Die IDs sind `1` plus der lückenlose Block
+`257`–`302`. Abbaustufen je ID schwanken: 29 IDs haben ein Bild, 8 haben zwei,
+5 haben drei, 5 haben vier.
+
+**Der obere Rand hat einen eigenen, kleineren Satz von 13 Fällen**, getrennt vom
+47er-Satz. Falls unsere Umsetzung den oberen Rand in den 47er-Satz gefaltet hat,
+ist das eine bewusste Vereinfachung, keine Übereinstimmung mit dem Vorbild.
+
+### 11.2 Aufbau der Welt
+
+Die Ausführbare nennt ihre eigenen Quelldateien und Prüfroutinen. Daraus die
+Gliederung der Welt in Zonen, jede mit eigenem Hintergrund und eigenen Anlagen:
+`surface`, `alpha`, `beta`, `delta` (Aussenposten, gleich aufgebaut), `gamma`
+(einzelner Hintergrund), `boss`, `space`.
+
+Für uns: das entspricht unseren Bergen, aber gestaffelt in **einer** Welt nach
+Tiefe statt nebeneinander. Die vier gleich aufgebauten Aussenposten sind
+wiederverwendete Bausteine, kein Einzelentwurf je Zone.
+
+### 11.3 Radar
+
+Die Ausführbare prüft für das Radar drei Dinge: `background`, `characters` und
+`tileTypes`, samt Anzahl der Kacheltypen und der Figuren. Das Radar bildet also
+**Kacheltypen** ab, nicht bloss Umrisse, und kennt bewegte Figuren.
+
+23 Radarbilder, jeweils 6×6 Bildpunkte, darunter `radar_background`,
+`radar_bedrock`. Sechs mal sechs Bildpunkte je Kachel ist die brauchbare Grösse
+für so eine Übersicht, falls wir eine bauen.
+
+### 11.4 Ausrüstung liegt als Kachel im Berg
+
+Kachel-IDs 108 bis 132 tragen die Namen der Ausrüstung, und dieselben Namen
+erscheinen als Anzeigetexte in der Ausführbaren. Ausrüstung wird also als Kachel
+im Gestein gefunden, nicht nur im Laden gekauft. Unsere Fundstücke gehen in die
+gleiche Richtung, sind aber reine Goldstücke ohne Wirkung auf die Ausrüstung.
+
+### 11.5 Was dort nicht gemessen werden konnte
+
+Figuren und Anzeige liegen in Flash-Dateien und einer eigenen Bibliothek, nicht in
+den untersuchten Clustern. Zum Aussehen der Spielfigur gibt es daher keine Zahlen.
