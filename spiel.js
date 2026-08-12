@@ -1455,12 +1455,45 @@ function zeichneLevi(){
 
 /* Kleiner Lichtkreis, darin alles klar zu sehen, danach ein langer
    schleichender Uebergang ins Dunkel. */
+/* Farbe des Hohlraums auf dieser Tiefe, gleich wie die Fuellung der Zeichenschleife */
+function hohlraumFarbe(y){
+  const [r, g, b] = tiefenFarbe(Math.max(0, y - FUSS));
+  return `rgb(${r*0.13|0},${g*0.12|0},${b*0.11|0})`;
+}
+
+/* Aussenecken abrunden. Wo Gestein in den Hohlraum vorspringt, stand bisher eine
+   harte rechtwinklige Ecke. Die Innenecken werden in der Zeichenschleife von der
+   Hohlraumseite her gewoelbt, hier kommt die fehlende Haelfte dazu: erst beide
+   zusammen loesen die Silhouette einer Masse vom Gitter. */
+function rundeAussenecken(x, y, px, py){
+  const li = fest(x-1, y), re = fest(x+1, y), ob = fest(x, y-1), un = fest(x, y+1);
+  if (li && re && ob && un) return;                    // mitten im Gestein
+  ctx.fillStyle = hohlraumFarbe(y);
+  const ecken = [
+    [!ob && !li, px,     py,     px + 0, py + 0, Math.PI,       Math.PI*1.5,  1,  1],
+    [!ob && !re, px + K, py,     0,      0,      Math.PI*1.5,   Math.PI*2,   -1,  1],
+    [!un && !re, px + K, py + K, 0,      0,      0,             Math.PI*0.5, -1, -1],
+    [!un && !li, px,     py + K, 0,      0,      Math.PI*0.5,   Math.PI,      1, -1],
+  ];
+  for (let n = 0; n < 4; n++){
+    const [ja, ex, ey, , , a0, a1, sx, sy] = ecken[n];
+    if (!ja) continue;
+    // Der Radius schwankt je Ort, damit die Rundung nicht mechanisch gleich wirkt
+    const R = K * (0.26 + hash(x*13 + n*7, y*17 + n*3) * 0.16);
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.arc(ex + sx*R, ey + sy*R, R, a0, a1);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
 function zeichneDunkelheit(){
   // Tiefe unter der Bergoberflaeche der eigenen Spalte, nicht unter der Basis.
   // Sonst bleibt es hell, wenn Levi waagrecht in die Flanke graebt.
   const cx = Math.max(0, Math.min(BREITE-1, Math.floor(P.x + P.b/2)));
   const t = (P.y + P.h/2) - ober[cx];
-  const a = Math.max(0, Math.min(0.95, (t/10) * 0.95));
+  const a = Math.max(0, Math.min(0.90, (t/14) * 0.90));
   if (a < 0.02) return;
   dctx.clearRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'source-over';
@@ -1470,13 +1503,19 @@ function zeichneDunkelheit(){
   const sx = (P.x + P.b/2)*K - kamera.x, sy = (P.y + P.h/2)*K - kamera.y;
   const r = K * (LAMPEN[S.lampe].weite + (S.imFahrzeug ? 1.6 : 0));
   const g = dctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-  g.addColorStop(0,    'rgba(0,0,0,1)');      // Kern: voll sichtbar
-  g.addColorStop(0.34, 'rgba(0,0,0,1)');
-  g.addColorStop(0.50, 'rgba(0,0,0,.86)');
-  g.addColorStop(0.66, 'rgba(0,0,0,.58)');
-  g.addColorStop(0.82, 'rgba(0,0,0,.28)');
-  g.addColorStop(0.93, 'rgba(0,0,0,.09)');
-  g.addColorStop(1,    'rgba(0,0,0,0)');      // Rand: ganz dunkel
+  // Innen alles voll sichtbar, danach ein schleichender Abfall. Die Stufen
+  // werden gerechnet statt von Hand gesetzt: wenige Marken erzeugen sichtbare
+  // Ringe, viele mit weicher Kurve blenden aus, ohne eine Kante zu zeigen.
+  const KERN = 0.38;
+  g.addColorStop(0,    'rgba(0,0,0,1)');
+  g.addColorStop(KERN, 'rgba(0,0,0,1)');
+  for (let n = 1; n <= 14; n++){
+    const s = KERN + (1 - KERN) * (n/14);
+    const u = n/14;
+    const w = (1 - u) * (1 - u) * (1 - u*0.35);   // weich auslaufend
+    g.addColorStop(Math.min(1, s), `rgba(0,0,0,${w.toFixed(3)})`);
+  }
+  g.addColorStop(1, 'rgba(0,0,0,0)');
   dctx.fillStyle = g;
   dctx.beginPath(); dctx.arc(sx, sy, r, 0, 7); dctx.fill();
   dctx.globalCompositeOperation = 'source-over';
@@ -1596,6 +1635,8 @@ function zeichne(){
         }
         ctx.stroke();
       }
+      // zuletzt die vorspringenden Ecken abrunden, damit sie ueber allem liegen
+      rundeAussenecken(x, y, px, py);
     }
   }
 
