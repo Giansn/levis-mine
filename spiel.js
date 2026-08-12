@@ -188,16 +188,33 @@ const LAMPEN = [
 ];
 
 /* --------------------------------- Physik -------------------------------- */
-const G          = 34;    // Schwerkraft in Kacheln/s²
-const MAX_FALL   = 26;
-const LAUF       = 6.4;
-const LUFT       = 0.42;
-const SPRUNG     = 11.6;
-const KLETTERN   = 5.2;
-const SCHUB      = 52;
-const SCHUB_SEIT = 30;
-const MAX_SCHUB  = 13;
-const STURZ_AB   = 17;    // ab dieser Fallgeschwindigkeit tut es weh
+/* Alles hat Masse. Kein Wert wird mehr gesetzt, jeder wird angefahren.
+   Einheiten: Kacheln je Sekunde, Beschleunigungen Kacheln je Sekunde im
+   Quadrat. Eine Kachel ist K = 34 Pixel.
+
+   Sprunghöhe = SPRUNG² / (2*G) = 12.4² / 76 = 2.02 Kacheln.
+   Damit bleibt die zugesicherte Treppenstufe von 1 Kachel klar erreichbar. */
+const G          = 38;    // Schwerkraft, etwas herber als vorher
+const MAX_FALL   = 26;    // Endgeschwindigkeit im freien Fall
+const LAUF       = 6.4;   // Höchsttempo zu Fuss, unverändert
+const ZUG        = 44;    // Anfahren am Boden, volles Tempo nach 0.15 s
+const BREMS      = 40;    // Bremsen am Boden, Nachlauf rund eine halbe Kachel
+const WENDE      = 1.9;   // Beim Richtungswechsel greift der Schuh stärker
+const LUFT       = 0.42;  // Anteil der Bodenbeschleunigung, der in der Luft wirkt
+const LUFT_BREMS = 3.2;   // In der Luft bremst fast nichts, der Schwung trägt
+const SPRUNG     = 12.4;  // Absprunggeschwindigkeit
+const KLETTERN   = 5.2;   // Tempo an Balken und Schienen
+const KLETTER_ZUG= 40;    // auch die Leiter wird kurz angefahren
+const SCHUB      = 54;    // Bohrfahrzeug: Schub nach oben, knapp über G
+const SCHUB_SEIT = 20;    // Seitendüsen in der Luft, absichtlich träge
+const KETTEN_GRIFF = 1.6;   // Am Boden greifen die Ketten besser als die Düsen
+const MAX_SCHUB  = 13;    // Steiggeschwindigkeit des Fahrzeugs
+const MAX_FAHRT  = 8.5;   // Seitentempo des Fahrzeugs
+const FAHR_BREMS = 26;    // Fahrzeug bremst am Boden
+const FAHR_ROLL  = 11;    // in der Luft rollt es lange aus
+const LAST       = 0.28;  // So viel Beschleunigung nimmt eine volle Ladung weg
+const STURZ_AB   = 18;    // ab dieser Fallgeschwindigkeit tut es weh
+const AUFSETZ    = 13.5;  // ab hier setzt es hart auf, noch ohne Schaden
 
 /* ========================================================================== */
 /*                                 Zustand                                    */
@@ -652,41 +669,69 @@ function klettertHier(){
   return leiterAn(cx, Math.floor(P.y + P.h/2)) || leiterAn(cx, Math.floor(P.y + P.h - 0.06));
 }
 
+/* Einen Wert ans Ziel heranfahren, höchstens um rate*dt je Bild. Das ist
+   die ganze Trägheit in einer Zeile: wer schwer ist, bekommt eine kleine
+   Rate. Überschiessen kann nichts, das Ziel wird nie überschritten. */
+function ziehe(wert, ziel, rate, dt){
+  const d = ziel - wert;
+  const s = rate * dt;
+  if (d > s)  return wert + s;
+  if (d < -s) return wert - s;
+  return ziel;
+}
+
 function bewege(dt){
   const links = taste.links, rechts = taste.rechts, auf = taste.auf, ab = taste.ab;
   if (links) P.blick = -1;
   if (rechts) P.blick = 1;
 
+  const richtung = (rechts ? 1 : 0) - (links ? 1 : 0);
+  // Die Ladung hängt an allem, was beschleunigt. Voll beladen fällt das
+  // Anfahren merklich schwerer, das Höchsttempo bleibt aber gleich.
+  const traegheit = 1 - LAST * Math.min(1, frachtMasse() / kapazitaet());
+
   if (S.imFahrzeug){
-    /* --- Bohrfahrzeug: Schub wie beim Pod --- */
+    /* --- Bohrfahrzeug: schwerer Körper mit Schub --- */
     const sprit = S.treibstoff > 0;
     if (auf && sprit){
-      P.vy -= SCHUB * dt;
+      // Schub liegt nur knapp über der Schwerkraft, das Abheben braucht Zeit
+      P.vy -= SCHUB * dt;   // Schub traegt die Ladung mit, sonst steigt es voll nicht mehr
       P.vy = Math.max(P.vy, -MAX_SCHUB);
       S.treibstoff = Math.max(0, S.treibstoff - 7.5*dt);
       if (Math.random() < 0.7) funke(P.x+P.b/2, P.y+P.h, (Math.random()-0.5)*3, 6+Math.random()*5, '#ffb347', 0.28);
     }
-    const beschl = SCHUB_SEIT * dt;
-    if (links)  P.vx -= beschl, S.treibstoff = Math.max(0, S.treibstoff - (P.amBoden?0:1.6)*dt);
-    if (rechts) P.vx += beschl, S.treibstoff = Math.max(0, S.treibstoff - (P.amBoden?0:1.6)*dt);
-    if (!links && !rechts) P.vx *= Math.pow(0.0025, dt);
-    P.vx = Math.max(-9, Math.min(9, P.vx));
+    if (richtung){
+      // Kein Zuschlag beim Wenden: eine Maschine mit Masse dreht nicht flinker,
+      // nur weil man dagegenhält. Am Boden beissen dafür die Ketten.
+      const zug = SCHUB_SEIT * traegheit * (P.amBoden ? KETTEN_GRIFF : 1);
+      P.vx = ziehe(P.vx, richtung*MAX_FAHRT, zug, dt);
+      S.treibstoff = Math.max(0, S.treibstoff - (P.amBoden?0:1.6)*dt);
+    } else {
+      P.vx = ziehe(P.vx, 0, P.amBoden ? FAHR_BREMS : FAHR_ROLL, dt);
+    }
     P.klettert = false;
   } else {
     /* --- Zu Fuss --- */
     P.klettert = klettertHier() && (auf || ab || Math.abs(P.vy) < 0.6);
     if (P.klettert && (auf || ab)){
-      P.vy = (ab ? 1 : -1) * KLETTERN;
+      P.vy = ziehe(P.vy, (ab ? 1 : -1) * KLETTERN, KLETTER_ZUG, dt);
     } else if (P.klettert && !auf && !ab){
-      P.vy = 0;
+      P.vy = 0;                                   // an der Leiter hält er sich fest
     }
-    const steuer = P.amBoden ? 1 : LUFT;
     // Beim Diagonalgraben bleibt Levi stehen, sonst laeuft er vom Ziel weg
     const graebtSchraeg = diagonalZiel() !== null;
-    if (graebtSchraeg) P.vx *= Math.pow(0.0008, dt);
-    else if (links)  P.vx = -LAUF * (P.amBoden ? 1 : Math.max(0.55, steuer+0.3));
-    else if (rechts) P.vx = LAUF * (P.amBoden ? 1 : Math.max(0.55, steuer+0.3));
-    else P.vx *= Math.pow(0.0008, dt);
+    if (graebtSchraeg){
+      P.vx = ziehe(P.vx, 0, BREMS*2, dt);
+    } else if (richtung){
+      // Am Boden trägt der Schuh, in der Luft nur der Schwung. Wer gegen die
+      // eigene Fahrt drückt, stemmt sich dagegen und wendet darum schneller,
+      // als er anfährt. Ohne das wirkt Masse nicht schwer, sondern unwillig.
+      const gegen = richtung * P.vx < 0;
+      const zug = ZUG * traegheit * (gegen ? WENDE : 1) * (P.amBoden ? 1 : LUFT);
+      P.vx = ziehe(P.vx, richtung*LAUF, zug, dt);
+    } else {
+      P.vx = ziehe(P.vx, 0, P.amBoden ? BREMS : LUFT_BREMS, dt);
+    }
     // Nicht springen, solange die Schraege abgebaut wird
     if (auf && P.amBoden && !P.klettert && !graebtSchraeg
         && !fest(Math.floor(P.x+P.b/2), Math.floor(P.y)-1)){
@@ -698,7 +743,20 @@ function bewege(dt){
 
   P.amBoden = false;
   P.x += P.vx*dt; loeseX();
+  const fallVor = P.vy;                 // loeseY setzt vy auf null, vorher merken
   P.y += P.vy*dt; loeseY();
+
+  /* Aufsetzen. Der Schwung geht in die Knie und nicht in die Beine, darum
+     verliert Levi beim harten Landen einen Teil seines Tempos. Unterhalb der
+     Schadensschwelle bleibt es beim Rums, darüber übernimmt sturzSchaden. */
+  if (P.amBoden && fallVor > AUFSETZ){
+    P.vx *= 0.45;
+    if (fallVor <= STURZ_AB){
+      beben = Math.max(beben, 3.2);
+      staub(P.x + P.b/2, P.y + P.h, 5, '#8b7a63');
+      klang('rums');
+    }
+  }
 
   // Rand der Welt: bis knapp ueber den Gipfel darf Levi steigen
   P.x = Math.max(1, Math.min(BREITE-1-P.b, P.x));
