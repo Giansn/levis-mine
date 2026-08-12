@@ -487,6 +487,17 @@ lies('tueEs("neuJa")');
 pruefe('Bestaetigter Neustart loescht den Stand', !speicher.has(lies('SCHLUESSEL')));
 lies('fensterZu()');
 
+/* --------------------------- Assetversion -------------------------------- */
+/* Commit 833f93a hat die Version von 8 auf 3 zurueckgesetzt. Danach liefen
+   Erhoehungen, die auf die alte Zahl ankerten, still ins Leere, und die Seite
+   forderte weiter eine Fassung an, die Browser schon zwischengespeichert
+   hatten. Diese Pruefung faengt wenigstens ein Auseinanderlaufen der beiden. */
+const seite = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+const vCss = (seite.match(/style\.css\?v=(\d+)/) || [])[1];
+const vJs  = (seite.match(/spiel\.js\?v=(\d+)/) || [])[1];
+pruefe('Beide Dateien tragen eine Version', !!vCss && !!vJs, `css ${vCss}, js ${vJs}`);
+pruefe('Beide Versionen stimmen ueberein', vCss === vJs, `css ${vCss}, js ${vJs}`);
+
 /* ------------------------------ Zeichnen --------------------------------- */
 try { lies('zeichne(); hud()'); } catch (e){ fehler.push('zeichne/hud: ' + e.stack); }
 pruefe('Zeichnen und HUD laufen durch', !fehler.some(f => f.includes('zeichne/hud')));

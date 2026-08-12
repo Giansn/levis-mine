@@ -275,6 +275,11 @@ rechnen, Formel in Abschnitt 3.
 - **Zwischenspeicher.** GitHub Pages liefert Assets zwischengespeichert aus. Nach
   jeder Änderung die Version in `index.html` erhöhen, `style.css?v=N` und
   `spiel.js?v=N`, sonst kommt die Änderung beim Spieler nicht an.
+  Die Zahl darf **nur steigen**. Commit `833f93a` hat sie von 8 auf 3
+  zurückgesetzt; danach forderte die Seite eine Fassung an, die Browser längst
+  zwischengespeichert hatten, und alle Änderungen kamen beim Spieler nicht an.
+  Zum Erhöhen `sed -E 's/(style\.css|spiel\.js)\?v=[0-9]+/\1?v=N/'` benutzen,
+  nicht auf eine feste Zahl ankern: ein Anker, der nicht passt, schlägt still fehl.
 - **`sed -i` mit Zeilennummern** hat in diesem Projekt schon die falschen Zeilen
   getroffen. Für Codeänderungen mit eindeutigem Textanker arbeiten.
 - **Befehlsketten.** `node --check … && …` gefolgt von einer neuen Zeile mit `git
