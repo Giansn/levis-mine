@@ -475,6 +475,29 @@ const belohnung = lies('FUNK.map(f => f.gold)');
 pruefe('Die Belohnung waechst mit',
   belohnung.every((g, i) => i === 0 || g > belohnung[i-1]), belohnung.join(', ') + ' Goldstücke');
 
+/* -------------------------------- Leiter --------------------------------- */
+/* An einer Leiter mit festem Boden darunter konnte Levi weder landen noch
+   weitergraben: das Graben war mit !P.klettert gesperrt und die Schwerkraft
+   beim Klettern aus. Da das Spiel zum Setzen von Balken auffordert, traf es
+   genau den vorgesehenen Weg. */
+const leiter = lies(`(() => {
+  const x = 24, y = FUSS + 40;
+  for (let dy = -6; dy <= 0; dy++){ boden[idx(x,y+dy)] = LEER; bau[idx(x,y+dy)] = 1; }
+  boden[idx(x, y+1)] = ERDE;
+  P.x = x + 0.15; P.y = y + 1 - P.h; P.vx = 0; P.vy = 0;
+  for (let i=0;i<30;i++) aktualisiere(1/60);
+  return {x, y, amBoden: P.amBoden, klettert: P.klettert};
+})()`);
+pruefe('Auf der Leiter mit Boden darunter steht Levi auf', leiter.amBoden === true);
+pruefe('Und haengt dabei nicht in der Leiter', leiter.klettert === false);
+lies('taste.ab = true');
+pruefe('Abwaerts findet er dort eine Zielkachel', lies('zielKachel() !== null'));
+for (let i = 0; i < 400; i++) lies('aktualisiere(1/60)');
+lies('taste.ab = false');
+pruefe('Und graebt sich weiter hinunter',
+  lies('P.y + P.h') > leiter.y + 4,
+  'von Zeile ' + (leiter.y+1) + ' auf ' + lies('(P.y + P.h).toFixed(1)'));
+
 /* ------------------------------ Optionen --------------------------------- */
 const inhalt = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
 lies('fensterZu()');

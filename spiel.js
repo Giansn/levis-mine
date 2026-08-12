@@ -41,8 +41,8 @@ const GESTEIN = {
 /* Der Wert steigt steiler als die Masse. Dadurch wird der Frachtraum mit jedem
    Meter Tiefe wertvoller und der Aufstieg zum Abliefern lohnt sich, statt zu nerven. */
 const MATERIAL = {
-  erz:    {name:'Eisenerz', wert:1,  masse:1, farbe:'#a8977c'},
-  kupfer: {name:'Kupfer',   wert:2,  masse:1, farbe:'#d9803a'},
+  erz:    {name:'Eisenerz', wert:2,  masse:1, farbe:'#a8977c'},
+  kupfer: {name:'Kupfer',   wert:4,  masse:1, farbe:'#d9803a'},
   bronze: {name:'Bronze',   wert:5,  masse:1, farbe:'#c99b45'},
   silber: {name:'Silber',   wert:14, masse:2, farbe:'#e2eaf2'},
   gold:   {name:'Gold',     wert:40, masse:3, farbe:'#ffc63d'},
@@ -154,22 +154,22 @@ function tueEs(tat){
 /* --------------------------------- Laden --------------------------------- */
 const LADEN = [
   {id:'schaufel', art:'werkzeug', name:'Schaufel', stufe:1,
-   text:'Bricht Erde und Geröll, sehr schnell.', preis:{gold:8}},
+   text:'Bricht Erde und Geröll, sehr schnell.', preis:{gold:6}},
   {id:'pickel', art:'werkzeug', name:'Pickel', stufe:1,
-   text:'Bricht Stein, Eisenerz und Kupfer.', preis:{gold:22, erz:3}},
+   text:'Bricht Stein, Eisenerz und Kupfer.', preis:{gold:14, erz:3}},
   {id:'hammer', art:'werkzeug', name:'Hammer & Meissel', stufe:2,
-   text:'Bricht Hartstein, Bronze und Silber.', preis:{gold:70, erz:8, kupfer:5}},
+   text:'Bricht Hartstein, Bronze und Silber.', preis:{gold:45, erz:8, kupfer:5}},
   {id:'nagel', art:'werkzeug', name:'Grosser Hammer & Nagel', stufe:3,
-   text:'Bricht Granit und Golderz, das tiefste Gestein.', preis:{gold:180, erz:14, bronze:6}},
+   text:'Bricht Granit und Golderz, das tiefste Gestein.', preis:{gold:110, erz:14, bronze:6}},
   {id:'lampe', art:'lampe', stufe:1, name:'Lampe', text:''},
   {id:'dynamit', art:'stapel', anzahl:1, name:'Dynamit', stufe:1,
-   text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:10}},
+   text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:8}},
   {id:'balken', art:'stapel', anzahl:20, name:'Leitern und Stützbalken ×20', stufe:1,
    text:'Deine Leiter nach oben: an gesetzten Balken kletterst du mit ▲ und ▼. '
       + 'Zugleich stützen sie den Stollen gegen Einsturz. Setzen mit der Leertaste.',
-   preis:{gold:16, erz:4}},
+   preis:{gold:12, erz:4}},
   {id:'seilwinde', art:'stapel', anzahl:2, name:'Seilwinde ×2', stufe:1,
-   text:'Zieht dich samt Ladung sofort zur Basis hoch, wenn du unten feststeckst.', preis:{gold:14}},
+   text:'Zieht dich samt Ladung sofort zur Basis hoch, wenn du unten feststeckst.', preis:{gold:10}},
   {id:'schienen', art:'stapel', anzahl:20, name:'Schienen ×20', stufe:1,
    text:'Gleis vom Stollen bis zur Basis.', preis:{gold:50}},
   {id:'wagen', art:'einmal', name:'Minenwagen', stufe:1,
@@ -184,9 +184,9 @@ const STUFEN = [0, 150, 400, 900, 1800, 3200, 5000];
    und leuchtet weiter, gemessen in Kacheln. */
 const LAMPEN = [
   {name:'Helmlampe',          weite:5.0},
-  {name:'Karbidlampe',        weite:7.4,  preis:{gold:40}},
-  {name:'Starke Grubenlampe', weite:10.2, preis:{gold:130, kupfer:8}},
-  {name:'Scheinwerfer',       weite:13.8, preis:{gold:340, silber:10}},
+  {name:'Karbidlampe',        weite:7.4,  preis:{gold:28}},
+  {name:'Starke Grubenlampe', weite:10.2, preis:{gold:90, kupfer:8}},
+  {name:'Scheinwerfer',       weite:13.8, preis:{gold:230, silber:10}},
 ];
 
 /* --------------------------------- Physik -------------------------------- */
@@ -714,7 +714,11 @@ function bewege(dt){
     P.klettert = false;
   } else {
     /* --- Zu Fuss --- */
-    P.klettert = klettertHier() && (auf || ab || Math.abs(P.vy) < 0.6);
+    // Steht Levi auf festem Boden, haelt er sich nicht fest, sonst schwebt er
+    // ueber dem Boden statt aufzusetzen und amBoden bleibt falsch.
+    const bodenUnterFuss = fest(Math.floor(P.x + P.b/2), Math.floor(P.y + P.h + 0.02));
+    P.klettert = klettertHier()
+      && (auf || ab || (Math.abs(P.vy) < 0.6 && !bodenUnterFuss));
     if (P.klettert && (auf || ab)){
       P.vy = ziehe(P.vy, (ab ? 1 : -1) * KLETTERN, KLETTER_ZUG, dt);
     } else if (P.klettert && !auf && !ab){
@@ -804,7 +808,10 @@ function zielKachel(){
   const dz = diagonalZiel();
   if (dz) return [dz[0], dz[1], 0.7];
 
-  if (taste.ab && !P.klettert && fest(cx, unten))                     return [cx, unten, 1];
+  // Kein !P.klettert mehr: an einer Leiter mit festem Boden darunter war das
+  // Graben gesperrt, und weil zugleich die Schwerkraft aus ist, sass Levi fest.
+  // Ist die Kachel unter den Fuessen frei, greift fest() nicht und er klettert.
+  if (taste.ab && fest(cx, unten))                                    return [cx, unten, 1];
   if (seitlich && taste.links  && fest(Math.floor(P.x-0.16), mitte))  return [Math.floor(P.x-0.16), mitte, 1];
   if (seitlich && taste.rechts && fest(Math.floor(P.x+P.b+0.16), mitte)) return [Math.floor(P.x+P.b+0.16), mitte, 1];
   if (taste.auf && !P.klettert && fest(cx, oben))                     return [cx, oben, 0.5];
