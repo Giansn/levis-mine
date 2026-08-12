@@ -376,7 +376,7 @@ function erzStufe(tiefe, reich){
 }
 
 function streueAdern(bo, berg){
-  const adern = Math.round((TIEFEN + GIPFEL) * BREITE * 0.0125);
+  const adern = Math.round((TIEFEN + GIPFEL) * BREITE * 0.026);
   for (let a = 0; a < adern; a++){
     let x = 1 + Math.floor(Math.random()*(BREITE-2));
     let y = HIMMEL + 2 + Math.floor(Math.random()*(GIPFEL + TIEFEN - 3));
