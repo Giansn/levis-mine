@@ -1410,6 +1410,46 @@ function fenster(titel, html){
   }
   schleier.hidden = false;
   for (const k in taste) taste[k] = false;
+  requestAnimationFrame(() => requestAnimationFrame(pruefeFenster));
+}
+
+/* Das Fenster hat sich auf fremden Rechnern leer gezeigt, obwohl der Inhalt
+   nachweislich im Dokument stand. Diese Messung laeuft nach dem Umbruch,
+   versucht die Darstellung zu erzwingen und meldet, was sie vorgefunden hat. */
+function pruefeFenster(){
+  const f = document.getElementById('fenster');
+  const kopf = document.getElementById('fensterTitel');
+  const inhalt = document.getElementById('fensterInhalt');
+  if (!inhalt.innerHTML.length) return;
+
+  const rk = kopf.getBoundingClientRect(), ri = inhalt.getBoundingClientRect();
+  if (ri.height > 20 && rk.height > 8) return;          // alles in Ordnung
+
+  const si = getComputedStyle(inhalt), sk = getComputedStyle(kopf), sf = getComputedStyle(f);
+  const erst = inhalt.firstElementChild;
+  const re = erst ? erst.getBoundingClientRect() : null;
+  const rf = f.getBoundingClientRect();
+
+  // Notdarstellung erzwingen, damit wenigstens etwas lesbar wird
+  const zwang = ';display:block!important;visibility:visible!important;opacity:1!important;height:auto!important;max-height:none!important;';
+  f.style.cssText      += zwang + 'overflow:visible!important;color:#efe6d6!important;';
+  inhalt.style.cssText += zwang + 'color:#efe6d6!important;';
+  kopf.style.cssText   += zwang + 'color:#ffc63d!important;font-size:24px!important;';
+  for (const kind of inhalt.children) kind.style.cssText += zwang;
+
+  zeigeAbsturz(
+    'Fenster leer trotz Inhalt: ' + inhalt.innerHTML.length + ' Zeichen, ' + inhalt.children.length + ' Elemente\n' +
+    'fenster ' + Math.round(rf.width) + 'x' + Math.round(rf.height) +
+    '  titel ' + Math.round(rk.width) + 'x' + Math.round(rk.height) +
+    '  inhalt ' + Math.round(ri.width) + 'x' + Math.round(ri.height) + '\n' +
+    'inhalt: display=' + si.display + ' vis=' + si.visibility + ' opac=' + si.opacity +
+    ' h=' + si.height + ' color=' + si.color + '\n' +
+    'titel: display=' + sk.display + ' vis=' + sk.visibility + ' color=' + sk.color + ' size=' + sk.fontSize + '\n' +
+    'fenster: display=' + sf.display + ' overflow=' + sf.overflow + ' maxh=' + sf.maxHeight + ' contain=' + sf.contain + '\n' +
+    'erstes Kind: ' + (erst ? erst.tagName + '.' + erst.className + ' ' +
+      Math.round(re.width) + 'x' + Math.round(re.height) + ' display=' + getComputedStyle(erst).display : 'keines') + '\n' +
+    'Stilblaetter: ' + document.styleSheets.length + '  Schrift: ' + sk.fontFamily.slice(0, 40)
+  );
 }
 function fensterZu(){ schleier.hidden = true; }
 
