@@ -2213,7 +2213,13 @@ function entpacke(text, len, Typ){
   return a;
 }
 
+/* Nach einem Neustart darf nichts mehr geschrieben werden. Ohne diese Sperre
+   feuert beim Neuladen beforeunload, ruft speichere(), und der eben geloeschte
+   Stand steht sofort wieder da. Genau daran ist der Neustart gescheitert. */
+let abgeraeumt = false;
+
 function speichere(){
+  if (abgeraeumt) return;
   try {
     const w = {};
     for (const nr in welten) w[nr] = {boden: packe(welten[nr].boden), bau: packe(welten[nr].bau)};
@@ -2243,6 +2249,7 @@ function lade(){
 }
 
 function neuAnfangen(){
+  abgeraeumt = true;                 // sperrt jedes weitere Schreiben, auch beforeunload
   localStorage.removeItem(SCHLUESSEL);
   location.reload();
 }

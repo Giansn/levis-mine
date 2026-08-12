@@ -485,6 +485,16 @@ lies('speichere()');
 pruefe('Vor dem Neustart liegt ein Stand vor', speicher.has(lies('SCHLUESSEL')));
 lies('tueEs("neuJa")');
 pruefe('Bestaetigter Neustart loescht den Stand', !speicher.has(lies('SCHLUESSEL')));
+/* Der eigentliche Fehler lag danach: beim Neuladen feuert beforeunload und
+   ruft speichere(), das den eben geloeschten Stand zurueckschrieb. Der Stub
+   fuehrt kein reload aus, darum wird der Aufruf hier von Hand nachgestellt. */
+lies('speichere()');
+pruefe('Nach dem Neustart schreibt auch beforeunload nichts zurueck',
+  !speicher.has(lies('SCHLUESSEL')));
+lies('S.gold = 999; speichere()');
+pruefe('Auch der laufende Selbstspeicher bleibt gesperrt',
+  !speicher.has(lies('SCHLUESSEL')));
+lies('abgeraeumt = false');          // fuer die folgenden Pruefungen wieder freigeben
 lies('fensterZu()');
 
 /* --------------------------- Assetversion -------------------------------- */
