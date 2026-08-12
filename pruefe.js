@@ -313,8 +313,9 @@ pruefe('Jeder Berg hat ein eigenes Profil',
 /* ------------------------- Speichern und Laden --------------------------- */
 lies('S.balken = 42; boden[idx(BASIS_X, basisY())] = LEER');
 try { lies('speichere()'); } catch (e){ fehler.push('speichere: ' + e.stack); }
-pruefe('Spielstand geschrieben', speicher.has('levisMine.v1'),
-  'Groesse ' + Math.round((speicher.get('levisMine.v1')||'').length/1024) + ' kB');
+const schl = lies('SCHLUESSEL');
+pruefe('Spielstand geschrieben', speicher.has(schl),
+  schl + ', ' + Math.round((speicher.get(schl)||'').length/1024) + ' kB');
 
 lies('S.balken = 0; delete welten[0]; delete welten[1]');
 let geladen = false;
