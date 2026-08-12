@@ -7,9 +7,11 @@
 /* ------------------------------- Grundmasse ------------------------------ */
 const K        = 34;                 // Pixel pro Kachel
 const BREITE   = 56;                 // Kachelspalten
-const HIMMEL   = 6;                  // Luftzeilen ueber dem Boden
-const TIEFEN   = 300;                // Gesteinszeilen
-const HOEHE    = HIMMEL + TIEFEN;
+const HIMMEL   = 5;                  // Luftzeilen ueber dem Gipfel
+const GIPFEL   = 22;                 // Hoehe des Bergs ueber seinem Fuss
+const TIEFEN   = 300;                // Gestein unter dem Fuss
+const FUSS     = HIMMEL + GIPFEL;    // Zeile des Bergfusses, dort steht die Basis
+const HOEHE    = FUSS + TIEFEN;
 const METER    = 2;                  // Meter pro Kachel
 const FRANKEN  = 25;                 // Franken pro Goldstueck
 const ZIEL     = 5000;               // Goldstuecke fuer den Sieg
@@ -21,18 +23,18 @@ const LEER=0, ERDE=1, STEIN=2, HARTSTEIN=3, GRANIT=4, GEROELL=5,
       ERZ=6, KUPFER=7, BRONZE=8, SILBER=9, GOLDERZ=10, GAS=11, FELS=12, SCHATZ=13;
 
 const GESTEIN = {
-  [ERDE]:      {name:'Erde',       haerte:1,  farbe:'#6d4a2c', korn:'#57391f'},
-  [GEROELL]:   {name:'Geröll',     haerte:1,  farbe:'#7b6a58', korn:'#5f5142'},
-  [STEIN]:     {name:'Stein',      haerte:2,  farbe:'#6a6a76', korn:'#54545f'},
-  [HARTSTEIN]: {name:'Hartstein',  haerte:3,  farbe:'#4b4b59', korn:'#3a3a46'},
-  [GRANIT]:    {name:'Granit',     haerte:4,  farbe:'#35353f', korn:'#26262e'},
-  [FELS]:      {name:'Urgestein',  haerte:99, farbe:'#191920', korn:'#101015'},
+  [ERDE]:      {name:'Erde',       haerte:1,  farbe:'#6d4a2c', korn:'#553718'},
+  [GEROELL]:   {name:'Geröll',     haerte:1,  farbe:'#6b5741', korn:'#53422f'},
+  [STEIN]:     {name:'Stein',      haerte:2,  farbe:'#5c5147', korn:'#463d35'},
+  [HARTSTEIN]: {name:'Hartstein',  haerte:3,  farbe:'#494139', korn:'#352f29'},
+  [GRANIT]:    {name:'Granit',     haerte:4,  farbe:'#38332e', korn:'#26221e'},
+  [FELS]:      {name:'Urgestein',  haerte:99, farbe:'#211e1b', korn:'#141210'},
   [GAS]:       {name:'Gastasche',  haerte:1,  farbe:'#3f5c34', korn:'#7cb45e'},
-  [ERZ]:       {name:'Eisenerz',   haerte:2,  farbe:'#6a6a76', korn:'#54545f', erz:'erz'},
-  [KUPFER]:    {name:'Kupfer',     haerte:2,  farbe:'#6a6a76', korn:'#54545f', erz:'kupfer'},
-  [BRONZE]:    {name:'Bronze',     haerte:3,  farbe:'#4b4b59', korn:'#3a3a46', erz:'bronze'},
-  [SILBER]:    {name:'Silber',     haerte:3,  farbe:'#4b4b59', korn:'#3a3a46', erz:'silber'},
-  [GOLDERZ]:   {name:'Golderz',    haerte:4,  farbe:'#35353f', korn:'#26262e', erz:'gold'},
+  [ERZ]:       {name:'Eisenerz',   haerte:2,  farbe:'#5c5147', korn:'#463d35', erz:'erz'},
+  [KUPFER]:    {name:'Kupfer',     haerte:2,  farbe:'#5c5147', korn:'#463d35', erz:'kupfer'},
+  [BRONZE]:    {name:'Bronze',     haerte:3,  farbe:'#494139', korn:'#352f29', erz:'bronze'},
+  [SILBER]:    {name:'Silber',     haerte:3,  farbe:'#494139', korn:'#352f29', erz:'silber'},
+  [GOLDERZ]:   {name:'Golderz',    haerte:4,  farbe:'#38332e', korn:'#26221e', erz:'gold'},
   [SCHATZ]:    {name:'Fundstück',  haerte:3,  farbe:'#3a2f22', korn:'#2a2118', schatz:400},
 };
 
@@ -90,8 +92,10 @@ const LADEN = [
    text:'Bricht Granit und Golderz, das tiefste Gestein.', preis:{gold:180, erz:14, bronze:6}},
   {id:'dynamit', art:'stapel', anzahl:1, name:'Dynamit', stufe:1,
    text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:10}},
-  {id:'balken', art:'stapel', anzahl:10, name:'Stützbalken ×10', stufe:1,
-   text:'Stützt den Stollen gegen Einsturz und dient als Leiter.', preis:{gold:18, erz:4}},
+  {id:'balken', art:'stapel', anzahl:20, name:'Stützbalken ×20', stufe:1,
+   text:'Stützt den Stollen gegen Einsturz und dient als Leiter nach oben.', preis:{gold:16, erz:4}},
+  {id:'seilwinde', art:'stapel', anzahl:2, name:'Seilwinde ×2', stufe:1,
+   text:'Zieht dich samt Ladung sofort zur Basis hoch, wenn du unten feststeckst.', preis:{gold:14}},
   {id:'schienen', art:'stapel', anzahl:20, name:'Schienen ×20', stufe:1,
    text:'Gleis vom Stollen bis zur Basis.', preis:{gold:50}},
   {id:'wagen', art:'einmal', name:'Minenwagen', stufe:1,
@@ -124,19 +128,20 @@ const S = {
   fracht:{erz:0, kupfer:0, bronze:0, silber:0, gold:0},
   lager: {erz:0, kupfer:0, bronze:0, silber:0, gold:0},
   werkzeuge:{schaufel:120, pickel:95},
-  dynamit:0, balken:8, schienen:0,
+  dynamit:0, balken:20, schienen:0, seilwinde:2,
   wagen:false, bohrer:false, imFahrzeug:false,
   treibstoff:100, leben:100,
   tiefstes:0, funk:[], gewonnen:false, ton:true,
 };
 
 const P = {
-  x:BASIS_X, y:HIMMEL-1, vx:0, vy:0, b:0.70, h:0.92,
+  x:BASIS_X, y:FUSS-1, vx:0, vy:0, b:0.70, h:0.92,
   amBoden:false, klettert:false, blick:1,
   zx:-1, zy:-1, fortschritt:0, grabt:false, schwung:0,
 };
 
 let boden, bau, stuetze;          // Kachelfelder des aktuellen Bergs
+let ober = new Int16Array(BREITE); // Urspruengliches Oberflaechenprofil
 const welten = {};                // bergNr -> {boden, bau, stuetze}
 
 let W = 0, H = 0;
@@ -172,13 +177,43 @@ addEventListener('unhandledrejection', e => zeigeAbsturz('Fehler: ' + e.reason))
 /*                              Weltgenerierung                               */
 /* ========================================================================== */
 
+/* Das Gelaende ist ein Berg, kein flacher Boden. Die erhobene Kosinusglocke
+   laeuft an beiden Enden waagrecht aus, dadurch bleibt die Flanke mit einem
+   Sprung begehbar, statt in Zweikachelstufen abzubrechen. */
+function profilFeld(nr){
+  const ob = new Int16Array(BREITE);
+  const phase = nr * 1.7;
+  for (let x = 0; x < BREITE; x++){
+    const m = (x - (BREITE-1)/2) / ((BREITE-1)/2);              // -1 … 1
+    const glocke = 0.5 * (1 + Math.cos(m * Math.PI));
+    const wellen = 0.055*Math.sin(x*0.55 + phase) + 0.035*Math.sin(x*1.7 + phase*2 + 1.1);
+    const h = Math.max(0, Math.min(1, glocke + wellen));
+    ob[x] = Math.round(FUSS - h*GIPFEL);
+  }
+  // Waagrechte Terrasse auf Fusshoehe, damit das Haus steht und die Tiefe bei 0 m beginnt
+  for (let x = BASIS_X-3; x <= BASIS_X+3; x++){
+    if (x >= 0 && x < BREITE) ob[x] = FUSS;
+  }
+  // Jede Stufe auf eine Kachel begrenzen, sonst reisst die Terrasse eine Klippe
+  // in die Flanke und Levi kaeme nicht mehr zum Haus zurueck.
+  for (let d = 0; d < 4; d++){
+    for (let x = 1; x < BREITE; x++)     if (ob[x] < ob[x-1] - 1) ob[x] = ob[x-1] - 1;
+    for (let x = BREITE-2; x >= 0; x--)  if (ob[x] < ob[x+1] - 1) ob[x] = ob[x+1] - 1;
+  }
+  return ob;
+}
+
+const basisY = () => ober[BASIS_X];
+
 function grundstein(t, bonus){
   const r = Math.random();
   let s;
-  if      (t < 8)   s = r<0.94 ? 1 : 2;
-  else if (t < 30)  s = r<0.62 ? 1 : (r<0.97 ? 2 : 3);
-  else if (t < 70)  s = r<0.18 ? 1 : (r<0.78 ? 2 : (r<0.98 ? 3 : 4));
-  else if (t < 120) s = r<0.05 ? 1 : (r<0.42 ? 2 : (r<0.90 ? 3 : 4));
+  // Bis 32 Kacheln nur Erde und Stein. Sonst sperrt eine einzelne
+  // Hartstein-Kachel den senkrechten Schacht, bevor der Hammer bezahlbar ist.
+  if      (t < 10)  s = r<0.94 ? 1 : 2;
+  else if (t < 32)  s = r<0.60 ? 1 : 2;
+  else if (t < 70)  s = r<0.18 ? 1 : (r<0.80 ? 2 : 3);
+  else if (t < 120) s = r<0.05 ? 1 : (r<0.45 ? 2 : (r<0.92 ? 3 : 4));
   else if (t < 170) s = r<0.16 ? 2 : (r<0.68 ? 3 : 4);
   else              s = r<0.06 ? 2 : (r<0.38 ? 3 : 4);
   if (bonus && Math.random() < bonus * 0.18 * (0.4 + t/TIEFEN)) s = Math.min(4, s+1);
@@ -186,19 +221,19 @@ function grundstein(t, bonus){
 }
 
 function grabeHoehlen(bo){
-  for (let n = 0; n < 26; n++){
+  for (let n = 0; n < 30; n++){
     let x = 3 + Math.floor(Math.random()*(BREITE-6));
-    let y = HIMMEL + 16 + Math.floor(Math.random()*(TIEFEN-24));
+    let y = FUSS + 14 + Math.floor(Math.random()*(TIEFEN-22));
     const laenge = 8 + Math.floor(Math.random()*24);
     for (let g = 0; g < laenge; g++){
       const rx = 1 + Math.floor(Math.random()*3), ry = 1 + Math.floor(Math.random()*2);
       for (let dy = -ry; dy <= ry; dy++) for (let dx = -rx; dx <= rx; dx++){
         const px = x+dx, py = y+dy;
-        if (px < 1 || px > BREITE-2 || py < HIMMEL+12 || py > HOEHE-5) continue;
+        if (px < 1 || px > BREITE-2 || py < FUSS+10 || py > HOEHE-5) continue;
         bo[py*BREITE+px] = LEER;
       }
       x = Math.max(2, Math.min(BREITE-3, x + Math.round((Math.random()-0.5)*5)));
-      y = Math.max(HIMMEL+14, Math.min(HOEHE-6, y + Math.round((Math.random()-0.5)*4)));
+      y = Math.max(FUSS+12, Math.min(HOEHE-6, y + Math.round((Math.random()-0.5)*4)));
     }
   }
 }
@@ -216,11 +251,11 @@ function erzStufe(tiefe, reich){
 }
 
 function streueAdern(bo, berg){
-  const adern = Math.round(TIEFEN * BREITE * 0.0125);
+  const adern = Math.round((TIEFEN + GIPFEL) * BREITE * 0.0125);
   for (let a = 0; a < adern; a++){
     let x = 1 + Math.floor(Math.random()*(BREITE-2));
-    let y = HIMMEL + 2 + Math.floor(Math.random()*(TIEFEN-3));
-    const kachel = ERZ_STUFEN[erzStufe(y - HIMMEL, berg.reich)];
+    let y = HIMMEL + 2 + Math.floor(Math.random()*(GIPFEL + TIEFEN - 3));
+    const kachel = ERZ_STUFEN[erzStufe(y - FUSS, berg.reich)];
     const gr = 3 + Math.floor(Math.random()*6);
     for (let g = 0; g < gr; g++){
       const i = y*BREITE + x;
@@ -236,7 +271,7 @@ function streueAdern(bo, berg){
 function streueGas(bo){
   for (let n = 0; n < 64; n++){
     const x = 1 + Math.floor(Math.random()*(BREITE-2));
-    const y = HIMMEL + 44 + Math.floor(Math.random()*(TIEFEN-50));
+    const y = FUSS + 40 + Math.floor(Math.random()*(TIEFEN-46));
     const i = y*BREITE + x;
     if (bo[i] !== LEER && bo[i] !== FELS) bo[i] = GAS;
   }
@@ -247,7 +282,7 @@ function streueFundstuecke(bo){
   let gesetzt = 0;
   for (let n = 0; n < 400 && gesetzt < 6; n++){
     const x = 2 + Math.floor(Math.random()*(BREITE-4));
-    const y = HIMMEL + 140 + Math.floor(Math.random()*(TIEFEN-146));
+    const y = FUSS + 140 + Math.floor(Math.random()*(TIEFEN-146));
     const i = y*BREITE + x;
     if (bo[i] === LEER || bo[i] === FELS) continue;
     bo[i] = SCHATZ;
@@ -257,12 +292,14 @@ function streueFundstuecke(bo){
 
 function neueWelt(nr){
   const berg = BERGE[nr];
+  const ob = profilFeld(nr);
   const bo = new Uint8Array(BREITE*HOEHE);
-  for (let y = HIMMEL; y < HOEHE; y++){
-    const t = y - HIMMEL;
+  for (let y = 0; y < HOEHE; y++){
     for (let x = 0; x < BREITE; x++){
       const i = y*BREITE + x;
-      bo[i] = (x === 0 || x === BREITE-1 || y >= HOEHE-2) ? FELS : grundstein(t, berg.bonus);
+      if (y < ob[x]) continue;                     // Luft ueber der Bergflanke
+      bo[i] = (x === 0 || x === BREITE-1 || y >= HOEHE-2)
+        ? FELS : grundstein(y - FUSS, berg.bonus);
     }
   }
   grabeHoehlen(bo);
@@ -272,7 +309,7 @@ function neueWelt(nr){
   // Vor dem Haus ein sauberes Stueck Erde, damit der Start ruhig ist
   for (let x = BASIS_X-3; x <= BASIS_X+3; x++){
     if (x < 1 || x > BREITE-2) continue;
-    for (let y = HIMMEL; y < HIMMEL+2; y++) bo[y*BREITE+x] = ERDE;
+    for (let y = ob[x]; y < ob[x]+2; y++) bo[y*BREITE+x] = ERDE;
   }
   return {boden:bo, bau:new Uint8Array(BREITE*HOEHE), stuetze:new Uint16Array(BREITE*HOEHE)};
 }
@@ -281,8 +318,9 @@ function ladeWelt(nr){
   if (!welten[nr]) welten[nr] = neueWelt(nr);
   const w = welten[nr];
   boden = w.boden; bau = w.bau; stuetze = w.stuetze;
+  ober = profilFeld(nr);          // rein rechnerisch, muss nicht gespeichert werden
   S.bergNr = nr;
-  P.x = BASIS_X; P.y = HIMMEL - P.h; P.vx = 0; P.vy = 0;
+  P.x = BASIS_X; P.y = basisY() - P.h; P.vx = 0; P.vy = 0;
   P.zx = P.zy = -1; P.fortschritt = 0;
   broeckelt.length = 0;
   const z = kameraZiel();
@@ -293,7 +331,7 @@ function ladeWelt(nr){
 function kameraZiel(){
   return {
     x: Math.max(0, Math.min(BREITE*K - W, (P.x + P.b/2)*K - W/2)),
-    y: Math.max(-HIMMEL*K*0.2, Math.min(HOEHE*K - H, (P.y + P.h/2)*K - H*0.52)),
+    y: Math.max(0, Math.min(HOEHE*K - H, (P.y + P.h/2)*K - H*0.52)),
   };
 }
 
@@ -318,7 +356,8 @@ function hash(x, y){
 }
 
 function stabil(x, y){
-  if (y < HIMMEL + 4) return true;
+  if (x < 0 || x >= BREITE) return true;
+  if (y < ober[x] + 4) return true;        // dicht unter der Bergflanke haelt es von selbst
   return stuetze[idx(x,y)] > 0;
 }
 
@@ -406,6 +445,7 @@ addEventListener('keydown', e => {
   else if (z === 'f') zuendeDynamit();
   else if (z === 'v') wechsleFahrzeug();
   else if (z === 'e') sendeWagen();
+  else if (z === 'l') nutzeSeilwinde();
   else if (z === 'k') zeigeLaden();
   else if (z === 'm') zeigeBerge();
   else if (z === 'h') zeigeHilfe();
@@ -495,7 +535,7 @@ function verletze(schaden, grund){
   for (const m of MATS){ const w = Math.floor(S.fracht[m]/2); S.fracht[m] -= w; verloren += w; }
   S.leben = 100;
   S.imFahrzeug = false;
-  P.x = BASIS_X; P.y = HIMMEL - P.h; P.vx = 0; P.vy = 0;
+  P.x = BASIS_X; P.y = basisY() - P.h; P.vx = 0; P.vy = 0;
   melde('Verschüttet. Zurück im Haus, ' + verloren + ' Einheiten liegen im Berg', 'schlecht');
   klang('einsturz');
 }
@@ -553,9 +593,9 @@ function bewege(dt){
   P.x += P.vx*dt; loeseX();
   P.y += P.vy*dt; loeseY();
 
-  // Rand der Welt
+  // Rand der Welt: bis knapp ueber den Gipfel darf Levi steigen
   P.x = Math.max(1, Math.min(BREITE-1-P.b, P.x));
-  if (P.y < HIMMEL - 3.2){ P.y = HIMMEL - 3.2; if (P.vy < 0) P.vy = 0; }
+  if (P.y < 0.6){ P.y = 0.6; if (P.vy < 0) P.vy = 0; }
 }
 
 /* ========================================================================== */
@@ -576,7 +616,9 @@ function zielKachel(){
   const cx = Math.floor(P.x + P.b/2);
   const mitte = Math.floor(P.y + P.h*0.5);
   const unten = Math.floor(P.y + P.h + 0.04);
-  const oben  = Math.floor(P.y - 0.04);
+  // Levi ist 0.92 Kacheln hoch, sein Kopf liegt also in der Zeile floor(P.y).
+  // Die Kachel darueber ist floor(P.y) - 1, nicht floor(P.y - 0.04).
+  const oben  = Math.floor(P.y) - 1;
   const seitlich = P.amBoden || P.klettert || S.imFahrzeug;
 
   if (taste.ab && !P.klettert && fest(cx, unten))                     return [cx, unten, 1];
@@ -612,7 +654,8 @@ function bohre(dt){
     werkzeug = bestesWerkzeug(g.haerte);
     if (!werkzeug){
       P.fortschritt = 0;
-      melde(g.name + ' braucht ein stärkeres Werkzeug', 'schlecht', 'schwach');
+      melde(g.name + ' braucht ein stärkeres Werkzeug. Grab seitlich daran vorbei',
+        'schlecht', 'schwach');
       return;
     }
     tempo = werkzeug.tempo;
@@ -641,7 +684,7 @@ function brichKachel(x, y, werkzeug){
 
   if (typ === GAS){
     // Der Schaden wächst mit der Tiefe, nicht mit einem festen Wert
-    verletze(10 + Math.round((y - HIMMEL)/TIEFEN * 26), 'Gastasche geplatzt');
+    verletze(10 + Math.round(Math.max(0, y - FUSS)/TIEFEN * 26), 'Gastasche geplatzt');
     beben = Math.max(beben, 7);
     staub(x+0.5, y+0.5, 22, '#8fd36a');
     klang('zisch');
@@ -734,7 +777,7 @@ function schienenBisBasis(sx, sy){
   while (rand.length){
     const [x, y] = rand.pop();
     // Das Gleis muss bis ans Haus heran, nicht bloss in dessen Naehe
-    if (y <= HIMMEL-1 && Math.abs(x - BASIS_X) <= 2) return true;
+    if (y <= basisY() && Math.abs(x - BASIS_X) <= 2) return true;
     for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       const nx = x+dx, ny = y+dy;
       if (nx < 1 || nx > BREITE-2 || ny < 0 || ny >= HOEHE) continue;
@@ -759,6 +802,22 @@ function sendeWagen(){
   melde('Der Minenwagen rollt heim', 'gut');
 }
 
+/* Der verlaessliche Weg zurueck nach oben, wenn der Schacht zu tief
+   oder die Balken aufgebraucht sind. */
+function nutzeSeilwinde(){
+  if (anBasis()){ melde('Du stehst schon an der Basis', 'schlecht', 'seil'); return; }
+  if (S.seilwinde <= 0){
+    melde('Keine Seilwinde mehr. Grab dich hoch oder setz Balken als Leiter', 'schlecht', 'seil');
+    return;
+  }
+  S.seilwinde--;
+  S.imFahrzeug = false;
+  P.x = BASIS_X; P.y = basisY() - P.h; P.vx = 0; P.vy = 0;
+  const z = kameraZiel(); kamera.x = z.x; kamera.y = z.y;
+  klang('wagen');
+  melde('Die Seilwinde zieht dich hoch, ' + S.seilwinde + ' übrig', 'gut');
+}
+
 function wechsleFahrzeug(){
   if (!S.bohrer){ melde('Du hast noch kein Bohrfahrzeug', 'schlecht'); return; }
   S.imFahrzeug = !S.imFahrzeug;
@@ -780,10 +839,10 @@ function pruefeEinsturz(dt){
     for (let versuch = 0; versuch < 5; versuch++){
       const x = cx + Math.round((Math.random()-0.5)*18);
       const y = cy + Math.round((Math.random()-0.5)*14);
-      if (x < 1 || x > BREITE-2 || y < HIMMEL+4 || y >= HOEHE-2) continue;
+      if (x < 1 || x > BREITE-2 || y >= HOEHE-2) continue;
       if (fest(x,y) || stabil(x,y)) continue;
       if (broeckelt.some(b => b.x === x && b.y === y)) continue;
-      const tiefe = (y - HIMMEL) / TIEFEN;
+      const tiefe = Math.max(0, y - FUSS) / TIEFEN;
       if (Math.random() > 0.05 + tiefe*0.14) continue;
       broeckelt.push({x, y, t:1.2});
       klang('rieseln');
@@ -817,8 +876,8 @@ function pruefeEinsturz(dt){
 /* ========================================================================== */
 
 function anBasis(){
-  const cx = P.x + P.b/2;
-  return Math.abs(cx - (BASIS_X + 0.5)) < 2.8 && P.y + P.h > HIMMEL - 1.6 && P.y + P.h < HIMMEL + 0.6;
+  const cx = P.x + P.b/2, fuss = basisY();
+  return Math.abs(cx - (BASIS_X + 0.5)) < 2.8 && P.y + P.h > fuss - 1.6 && P.y + P.h < fuss + 0.6;
 }
 
 function basisTick(dt){
@@ -920,6 +979,15 @@ const zahl = n => Math.round(n).toLocaleString('de-CH');
 /* ========================================================================== */
 
 const kachelBild = {};
+const randBild = [];
+const VARIANTEN = 8;
+
+/* Farbe heller oder dunkler stellen, ohne eine Bibliothek dafuer */
+function ton(hex, d){
+  const n = parseInt(hex.slice(1), 16);
+  const f = k => Math.max(0, Math.min(255, Math.round(k + d*255)));
+  return `rgb(${f((n>>16)&255)},${f((n>>8)&255)},${f(n&255)})`;
+}
 
 function baueKachelbild(typ, variante){
   const c = document.createElement('canvas');
@@ -927,24 +995,44 @@ function baueKachelbild(typ, variante){
   const d = c.getContext('2d');
   const g = GESTEIN[typ];
 
-  d.fillStyle = g.farbe;
+  // Grundton je Variante leicht verschieben, sonst entsteht ein Schachbrett
+  d.fillStyle = ton(g.farbe, (hash(variante*17+3, typ*29+7) - 0.5) * 0.09);
   d.fillRect(0, 0, K, K);
 
-  // Koernung
-  d.fillStyle = g.korn;
-  for (let i = 0; i < 13; i++){
-    const r = hash(variante*97 + i, typ*31 + i*7);
-    const r2 = hash(typ*13 + i*3, variante*57 + i);
-    d.globalAlpha = 0.35 + r2*0.4;
-    const gr = 1 + Math.floor(r2*3);
-    d.fillRect(Math.floor(r*K), Math.floor(r2*K), gr, gr);
+  // Koernung als runde Krumen, ueber den Rand hinaus, damit keine Kante entsteht
+  for (let i = 0; i < 30; i++){
+    const rx = hash(variante*97 + i*13, typ*31 + i*7);
+    const ry = hash(typ*13 + i*3, variante*57 + i*11);
+    const rz = hash(i*5 + variante, typ*7 + i);
+    d.globalAlpha = 0.14 + rz*0.30;
+    d.fillStyle = rz < 0.62 ? g.korn : ton(g.farbe, 0.07);
+    d.beginPath();
+    d.arc(rx*K, ry*K, 1.1 + rz*3.4, 0, 7);
+    d.fill();
+  }
+  // Unregelmaessige Schollen, ueber den Kachelrand hinaus gezeichnet und
+  // umlaufend wiederholt. Dadurch endet die Zeichnung nicht an der Kante und
+  // das Feld liest sich als gewachsene Erde statt als Reihe von Kloetzen.
+  for (let i = 0; i < 4; i++){
+    const mx = hash(variante*41 + i*19, typ*11 + i*23) * K;
+    const my = hash(typ*37 + i*29, variante*13 + i*3) * K;
+    const dunkel = i % 2 === 0;
+    d.globalAlpha = dunkel ? 0.20 : 0.09;
+    d.fillStyle = dunkel ? g.korn : ton(g.farbe, 0.06);
+    for (const [ox, oy] of [[0,0],[K,0],[-K,0],[0,K],[0,-K]]){
+      d.beginPath();
+      for (let n = 0; n <= 11; n++){
+        const w = n/11 * Math.PI*2;
+        const r = K * (0.16 + hash(variante*13 + i*7 + n*3, n*11 + typ) * 0.22);
+        const px = mx + ox + Math.cos(w)*r;
+        const py = my + oy + Math.sin(w)*r*0.78;
+        if (n === 0) d.moveTo(px, py); else d.lineTo(px, py);
+      }
+      d.closePath();
+      d.fill();
+    }
   }
   d.globalAlpha = 1;
-
-  // Kante oben hell, unten dunkel
-  d.fillStyle = 'rgba(255,255,255,.07)'; d.fillRect(0, 0, K, 2);
-  d.fillStyle = 'rgba(0,0,0,.22)';       d.fillRect(0, K-3, K, 3);
-  d.fillStyle = 'rgba(0,0,0,.14)';       d.fillRect(K-2, 0, 2, K);
 
   // Erznester
   if (g.erz){
@@ -982,10 +1070,49 @@ function baueKachelbild(typ, variante){
   return c;
 }
 
+/* Saum fuer die Seiten, die an Hohlraum grenzen. Unregelmaessig, damit die
+   Wand gegraben aussieht und nicht geschnitten. Die Maske hat ein Bit je
+   Seite: 1 oben, 2 rechts, 4 unten, 8 links. */
+function baueRandbild(maske){
+  const c = document.createElement('canvas');
+  c.width = c.height = K;
+  const d = c.getContext('2d');
+  for (let s = 0; s < 4; s++){
+    if (!(maske & (1 << s))) continue;
+    d.save();
+    d.translate(K/2, K/2);
+    d.rotate(s * Math.PI/2);            // 0 oben, dann im Uhrzeigersinn
+    d.translate(-K/2, -K/2);
+    const g = d.createLinearGradient(0, 0, 0, K*0.42);
+    g.addColorStop(0,   'rgba(0,0,0,.50)');
+    g.addColorStop(0.45,'rgba(0,0,0,.20)');
+    g.addColorStop(1,   'rgba(0,0,0,0)');
+    d.fillStyle = g;
+    d.beginPath();
+    d.moveTo(-1, -1);
+    d.lineTo(K+1, -1);
+    // Wellenlinie nach innen, aus der Maske bestimmt und darum stabil
+    for (let i = 5; i >= 0; i--){
+      const px = i/5 * K;
+      const tief = 5 + hash(maske*31 + i*7 + s*13, i*3 + s) * K*0.30;
+      d.lineTo(px, tief);
+    }
+    d.closePath();
+    d.fill();
+    // helle Lippe direkt an der Bruchkante
+    d.fillStyle = 'rgba(255,240,215,.09)';
+    d.fillRect(0, 0, K, 1.6);
+    d.restore();
+  }
+  return c;
+}
+
 function baueAlleKachelbilder(){
   for (const typ of [ERDE, GEROELL, STEIN, HARTSTEIN, GRANIT, FELS, GAS, ERZ, KUPFER, BRONZE, SILBER, GOLDERZ, SCHATZ]){
-    kachelBild[typ] = [0,1,2,3].map(v => baueKachelbild(typ, v));
+    kachelBild[typ] = [];
+    for (let v = 0; v < VARIANTEN; v++) kachelBild[typ].push(baueKachelbild(typ, v));
   }
+  for (let m = 0; m < 16; m++) randBild[m] = baueRandbild(m);
 }
 
 /* ========================================================================== */
@@ -1005,7 +1132,7 @@ addEventListener('resize', passeGroesseAn);
 /* Gastaschen tragen die Maske des umgebenden Gesteins. Man sieht sie erst,
    wenn man sie angebohrt hat, und genau das macht sie gefährlich. */
 function tarnung(y){
-  const t = y - HIMMEL;
+  const t = y - FUSS;
   if (t < 30)  return ERDE;
   if (t < 100) return STEIN;
   if (t < 200) return HARTSTEIN;
@@ -1022,33 +1149,34 @@ function tiefenFarbe(t){
 
 function zeichneHimmel(){
   const oben = -kamera.y;
-  const g = ctx.createLinearGradient(0, oben, 0, oben + HIMMEL*K);
+  const g = ctx.createLinearGradient(0, oben, 0, oben + FUSS*K);
   g.addColorStop(0,   '#1b2f52');
   g.addColorStop(0.5, '#3f6a9c');
   g.addColorStop(1,   '#8fb4d8');
   ctx.fillStyle = g;
   // nach oben weit ueberzeichnen, sonst klafft ueber dem Himmel ein schwarzes Band
-  ctx.fillRect(0, oben - H, W, H + HIMMEL*K + 4);
+  ctx.fillRect(0, oben - H, W, H + FUSS*K + 4);
 
   // Sonne
   ctx.fillStyle = 'rgba(255,236,170,.85)';
   ctx.beginPath(); ctx.arc(W - 110, oben + 52, 24, 0, 7); ctx.fill();
 
-  // Bergkette im Hintergrund
-  ctx.fillStyle = '#2b3f5e';
+  // Ferne Nachbarberge, blass und tief gehalten, damit der eigene Berg wirkt
+  const grund = FUSS*K - kamera.y;
+  ctx.fillStyle = 'rgba(43,63,94,.55)';
   ctx.beginPath();
-  ctx.moveTo(-kamera.x*0.35 - 200, HIMMEL*K - kamera.y);
-  for (let i = 0; i <= 14; i++){
-    const bx = -kamera.x*0.35 - 200 + i*150;
-    ctx.lineTo(bx + 75, HIMMEL*K - kamera.y - (60 + (i%3)*46));
-    ctx.lineTo(bx + 150, HIMMEL*K - kamera.y);
+  ctx.moveTo(-kamera.x*0.22 - 300, grund);
+  for (let i = 0; i <= 16; i++){
+    const bx = -kamera.x*0.22 - 300 + i*210;
+    ctx.lineTo(bx + 105, grund - (110 + (i%3)*70));
+    ctx.lineTo(bx + 210, grund);
   }
   ctx.closePath(); ctx.fill();
 }
 
 function zeichneHaus(){
   const px = (BASIS_X - 1.5)*K - kamera.x;
-  const py = (HIMMEL - 3.1)*K - kamera.y;
+  const py = (basisY() - 3.1)*K - kamera.y;
   const b = 4*K, h = 3.1*K;
 
   ctx.fillStyle = 'rgba(0,0,0,.3)';
@@ -1200,10 +1328,11 @@ function zeichneLevi(){
   ctx.beginPath(); ctx.arc(cx, py + h*0.4, K*3.2, 0, 7); ctx.fill();
 }
 
+/* Kleiner Lichtkreis, darin alles klar zu sehen, danach ein langer
+   schleichender Uebergang ins Dunkel. */
 function zeichneDunkelheit(){
-  const t = (P.y + P.h/2) - HIMMEL;
-  // langsamer und nicht ganz bis Schwarz, sonst sieht Levi ab 50 m nichts mehr
-  const a = Math.max(0, Math.min(0.74, (t/60) * 0.74));
+  const t = (P.y + P.h/2) - basisY();
+  const a = Math.max(0, Math.min(0.95, (t/14) * 0.95));
   if (a < 0.02) return;
   dctx.clearRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'source-over';
@@ -1211,11 +1340,15 @@ function zeichneDunkelheit(){
   dctx.fillRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'destination-out';
   const sx = (P.x + P.b/2)*K - kamera.x, sy = (P.y + P.h/2)*K - kamera.y;
-  const r = K * (S.imFahrzeug ? 10.5 : 8.5);
-  const g = dctx.createRadialGradient(sx, sy, K*0.5, sx, sy, r);
-  g.addColorStop(0,    'rgba(0,0,0,1)');
-  g.addColorStop(0.45, 'rgba(0,0,0,.82)');
-  g.addColorStop(1,    'rgba(0,0,0,0)');
+  const r = K * (S.imFahrzeug ? 7.6 : 6.2);
+  const g = dctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+  g.addColorStop(0,    'rgba(0,0,0,1)');      // Kern: voll sichtbar
+  g.addColorStop(0.34, 'rgba(0,0,0,1)');
+  g.addColorStop(0.50, 'rgba(0,0,0,.86)');
+  g.addColorStop(0.66, 'rgba(0,0,0,.58)');
+  g.addColorStop(0.82, 'rgba(0,0,0,.28)');
+  g.addColorStop(0.93, 'rgba(0,0,0,.09)');
+  g.addColorStop(1,    'rgba(0,0,0,0)');      // Rand: ganz dunkel
   dctx.fillStyle = g;
   dctx.beginPath(); dctx.arc(sx, sy, r, 0, 7); dctx.fill();
   dctx.globalCompositeOperation = 'source-over';
@@ -1231,12 +1364,12 @@ function zeichne(){
   }
 
   // Untergrund-Hintergrund nach Tiefe
-  const tOben = Math.max(0, (kamera.y/K) - HIMMEL);
+  const tOben = Math.max(0, (kamera.y/K) - FUSS);
   const [r,g,b] = tiefenFarbe(tOben);
   ctx.fillStyle = `rgb(${r*0.55|0},${g*0.55|0},${b*0.55|0})`;
   ctx.fillRect(0, 0, W, H);
 
-  if (kamera.y < HIMMEL*K) zeichneHimmel();
+  if (kamera.y < FUSS*K) zeichneHimmel();
 
   const x0 = Math.max(0, Math.floor(kamera.x/K));
   const x1 = Math.min(BREITE-1, Math.ceil((kamera.x + W)/K));
@@ -1249,16 +1382,16 @@ function zeichne(){
       const px = x*K - kamera.x;
       const typ = boden[idx(x,y)];
       if (typ === LEER){
-        if (y >= HIMMEL){
-          const [cr,cg,cb] = tiefenFarbe(y - HIMMEL);
-          ctx.fillStyle = `rgb(${cr*0.42|0},${cg*0.42|0},${cb*0.42|0})`;
+        // Hohlraum nur zeichnen, wo er im Berg liegt, sonst scheint der Himmel durch
+        if (y >= ober[x]){
+          const [cr,cg,cb] = tiefenFarbe(Math.max(0, y - FUSS));
+          ctx.fillStyle = `rgb(${cr*0.34|0},${cg*0.34|0},${cb*0.34|0})`;
           ctx.fillRect(px, py, K, K);
-          if (fest(x, y-1)){ ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(px, py, K, 5); }
         }
         zeichneBau(x, y, px, py);
-        if (!stabil(x,y) && y >= HIMMEL+4){
+        if (!stabil(x,y)){
           const stark = broeckelt.some(bb => bb.x === x && bb.y === y);
-          ctx.strokeStyle = stark ? 'rgba(255,120,90,.75)' : 'rgba(200,90,70,.22)';
+          ctx.strokeStyle = stark ? 'rgba(255,120,90,.75)' : 'rgba(200,90,70,.20)';
           ctx.lineWidth = stark ? 2 : 1;
           ctx.beginPath();
           ctx.moveTo(px + K*0.2, py + 2); ctx.lineTo(px + K*0.42, py + K*0.34);
@@ -1269,7 +1402,28 @@ function zeichne(){
         continue;
       }
       const bilder = kachelBild[typ === GAS ? tarnung(y) : typ];
-      if (bilder) ctx.drawImage(bilder[(hash(x,y)*4)|0], px, py);
+      if (bilder) ctx.drawImage(bilder[(hash(x,y)*VARIANTEN)|0], px, py);
+      // Saum an jeder Seite, die an Hohlraum grenzt
+      let maske = 0;
+      if (!fest(x, y-1)) maske |= 1;
+      if (!fest(x+1, y)) maske |= 2;
+      if (!fest(x, y+1)) maske |= 4;
+      if (!fest(x-1, y)) maske |= 8;
+      if (maske) ctx.drawImage(randBild[maske], px, py);
+      // Erdkamm auf jede freiliegende Oberkante. Die Zeile darueber ist
+      // bereits gezeichnet, darum genuegt ein Durchgang. Bricht die Treppe
+      // der Bergflanke und laesst Stollenboeden gegraben aussehen.
+      if (maske & 1){
+        ctx.fillStyle = GESTEIN[typ === GAS ? tarnung(y) : typ].farbe;
+        ctx.beginPath();
+        ctx.moveTo(px, py + 3);
+        for (let n = 0; n <= 4; n++){
+          ctx.lineTo(px + n*K/4, py - hash(x*7 + n*3, y*13 + n) * K*0.28);
+        }
+        ctx.lineTo(px + K, py + 3);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
   }
 
@@ -1308,10 +1462,10 @@ function zeichne(){
   ctx.font = '11px monospace';
   ctx.textAlign = 'right';
   for (let y = Math.ceil(y0/10)*10; y <= y1; y += 10){
-    if (y < HIMMEL) continue;
+    if (y < FUSS) continue;
     const py = y*K - kamera.y;
     ctx.fillRect(W - 46, py, 30, 1);
-    ctx.fillText((y-HIMMEL)*METER + ' m', W - 50, py + 4);
+    ctx.fillText((y-FUSS)*METER + ' m', W - 50, py + 4);
   }
   ctx.textAlign = 'left';
 }
@@ -1322,7 +1476,7 @@ function zeichne(){
 
 function hud(){
   const berg = BERGE[S.bergNr];
-  const tiefe = Math.max(0, Math.round((P.y + P.h - HIMMEL) * METER));
+  const tiefe = Math.max(0, Math.round((P.y + P.h - FUSS) * METER));
   document.getElementById('bergName').textContent = berg.name;
   document.getElementById('tiefe').textContent = tiefe + ' m';
   document.getElementById('goldZahl').textContent = zahl(S.gold);
@@ -1376,6 +1530,7 @@ function hud(){
     ['Dynamit', S.dynamit, 'F'],
     ['Balken', S.balken, '␣'],
     ['Schienen', S.schienen, 'R'],
+    ['Seilwinde', S.seilwinde, 'L'],
     ['Fahrzeug', S.bohrer ? (S.imFahrzeug ? 'AN' : 'aus') : '–', 'V'],
   ].map(([n, v, t]) => `<div class="vorratKarte ${v === 0 || v === '–' ? 'null' : ''}"><b>${v}</b>${n} <kbd>${t}</kbd></div>`).join('');
 }
@@ -1592,13 +1747,28 @@ function zeigeHilfe(){
       <tr><td>Stützbalken setzen</td><td><kbd>Leer</kbd></td></tr>
       <tr><td>Schiene legen</td><td><kbd>R</kbd></td></tr>
       <tr><td>Dynamit zünden</td><td><kbd>F</kbd></td></tr>
+      <tr><td>Seilwinde, zieht dich zur Basis</td><td><kbd>L</kbd></td></tr>
       <tr><td>Minenwagen heimschicken</td><td><kbd>E</kbd></td></tr>
       <tr><td>Ins Bohrfahrzeug steigen</td><td><kbd>V</kbd></td></tr>
       <tr><td>Laden, Berge, Hilfe</td><td><kbd>K</kbd><kbd>M</kbd><kbd>H</kbd></td></tr>
     </table>
 
+    <h3 class="abschnitt">So kommst du wieder hoch</h3>
+    <table class="tafel">
+      <tr><td>Nach oben graben</td><td>Mit <kbd>▲</kbd> brichst du die Kachel über deinem Kopf,
+        etwas langsamer als nach unten. So gräbst du dich immer wieder heraus.</td></tr>
+      <tr><td>Balken als Leiter</td><td>Setz beim Abstieg mit <kbd>Leer</kbd> Stützbalken in den Schacht.
+        An ihnen kletterst du mit <kbd>▲</kbd> und <kbd>▼</kbd> hoch und runter. Schienen taugen auch dazu.</td></tr>
+      <tr><td>Seilwinde</td><td>Steckst du fest, zieht dich <kbd>L</kbd> samt Ladung sofort zur Basis.
+        Zwei hast du dabei, weitere kosten 14 Goldstücke.</td></tr>
+      <tr><td>Zu hartes Gestein</td><td>Bricht eine Kachel nicht, grab seitlich daran vorbei,
+        statt im Schacht stehen zu bleiben.</td></tr>
+    </table>
+
     <h3 class="abschnitt">So läuft es</h3>
     <table class="tafel">
+      <tr><td>Der Berg</td><td>Das Haus steht am Fuss des Bergs. Die Flanke kannst du hinauflaufen,
+        gegraben wird nach innen und nach unten. Die Tiefe zählt ab der Basis.</td></tr>
       <tr><td>Werkzeug</td><td>Schaufel bricht Erde, Pickel bricht Stein, Hammer und Meissel brechen Hartstein,
         der grosse Hammer mit Nagel bricht Granit. Jedes Werkzeug nutzt sich ab und muss ersetzt werden.</td></tr>
       <tr><td>Dynamit</td><td>Sprengt alles im Umkreis und ist danach weg.</td></tr>
@@ -1636,7 +1806,8 @@ function zeigeHilfe(){
 /*                              Speichern                                     */
 /* ========================================================================== */
 
-const SCHLUESSEL = 'levisMine.v1';
+// v2: der Berg hat die Weltmasse geaendert, alte Staende passen nicht mehr
+const SCHLUESSEL = 'levisMine.v2';
 
 function packe(arr){
   let s = '';
@@ -1645,6 +1816,7 @@ function packe(arr){
 }
 function entpacke(text, len, Typ){
   const bin = atob(text);
+  if (bin.length !== len) return null;      // Stand aus einer anderen Weltgroesse
   const a = new Typ(len);
   for (let i = 0; i < len; i++) a[i] = bin.charCodeAt(i);
   return a;
@@ -1666,6 +1838,7 @@ function lade(){
   for (const nr in daten.welten){
     const bo = entpacke(daten.welten[nr].boden, BREITE*HOEHE, Uint8Array);
     const ba = entpacke(daten.welten[nr].bau, BREITE*HOEHE, Uint8Array);
+    if (!bo || !ba) return false;           // unpassender Stand, lieber neu anfangen
     const st = new Uint16Array(BREITE*HOEHE);
     welten[nr] = {boden:bo, bau:ba, stuetze:st};
     // Stuetzfeld aus den vorhandenen Balken neu aufbauen
@@ -1706,7 +1879,7 @@ function aktualisiere(dt){
     if (n > 0){ S.gold += n; S.verdient += n; pruefeSieg(); }
   }
 
-  const tiefe = Math.max(0, Math.round((P.y + P.h - HIMMEL) * METER));
+  const tiefe = Math.max(0, Math.round((P.y + P.h - FUSS) * METER));
   if (tiefe > S.tiefstes) S.tiefstes = tiefe;
 
   // Tiefenmarken: je tiefer, desto weiter die Geschichte

@@ -1,7 +1,10 @@
 # Levis Mine
 
 Ein 2D-Bergbauspiel in der Seitenansicht, nach dem Vorbild von Motherload.
-Läuft ohne Installation und ohne Server: `index.html` doppelklicken.
+Levi gräbt sich in einen Berg, dessen Haus am Bergfuss steht. Läuft ohne
+Installation und ohne Server: `index.html` doppelklicken.
+
+Im Netz: <https://giansn.github.io/levis-mine/>
 
 ## Spielen
 
@@ -22,6 +25,7 @@ Entwicklerkonsole mit `neuAnfangen()`.
 | Leertaste | Stützbalken setzen |
 | R | Schiene legen |
 | F | Dynamit zünden |
+| L | Seilwinde, zieht dich zur Basis |
 | E | Minenwagen heimschicken |
 | V | ins Bohrfahrzeug steigen |
 | K M H | Laden, Berge, Hilfe |
@@ -46,6 +50,12 @@ Aus Motherload übernommen sind drei Entwurfsentscheide, nicht Code:
 
 Dazu Tiefenmarken bei 100, 250, 400 und 580 Metern, die Nachricht und Belohnung
 geben, und einzelne Fundstücke ganz unten.
+
+## Wieder nach oben
+
+Drei Wege, damit niemand unten feststeckt: mit der Pfeiltaste nach oben die
+Kachel über dem Kopf wegbrechen, an gesetzten Stützbalken oder Schienen
+klettern, oder die Seilwinde mit `L`, die samt Ladung zur Basis zieht.
 
 ## Dateien
 
