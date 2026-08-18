@@ -89,8 +89,27 @@ const BERGE = [
    sehen kann, kann Levi auch bedienen. Zurueckgesetzt wird von aussen, ueber
    die Entwicklerkonsole, siehe zeitZuruecksetzen() und zeitLimit() am Ende
    dieser Datei. */
-const ZEIT = 'levisMine.zeit';
-const STANDARD_LIMIT = 20;            // Minuten je Spieler und Tag
+const ZEIT = 'levisMine.zeit';           // das Limit in Minuten
+const ZEIT_STAND = 'levisMine.zeitstand'; // die heute verbrauchte Zeit
+const STANDARD_LIMIT = 20;               // Minuten je Geraet und Tag
+
+/* Die verbrauchte Zeit haengt bewusst NICHT am Spielstand. Lag sie dort, gab
+   ein neuer Name auf dem Startbildschirm frische zwanzig Minuten, und das Feld
+   dafuer steht direkt daneben. Jetzt zaehlt sie geraeteweit, ueber alle Spieler
+   hinweg. */
+let zeitStand = {tag:'', sekunden:0, gewarnt:0};
+let zeitSchreibUhr = 0;
+
+function zeitLaden(){
+  try {
+    const d = JSON.parse(localStorage.getItem(ZEIT_STAND));
+    if (d && typeof d.sekunden === 'number') zeitStand = d;
+  } catch(e){}
+  if (zeitStand.tag !== heute()) zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0};
+}
+function zeitSichern(){
+  try { localStorage.setItem(ZEIT_STAND, JSON.stringify(zeitStand)); } catch(e){}
+}
 
 const limitMinuten = () => {
   try {
@@ -103,19 +122,22 @@ const heute = () => new Date().toISOString().slice(0, 10);
 /* Verbrauchte Zeit je Spieler und Tag. Sie zaehlt nur, waehrend wirklich
    gespielt wird: bei offenem Fenster laeuft die Schleife ohnehin nicht. */
 function zeitTicken(dt){
-  if (S.zeitTag !== heute()){ S.zeitTag = heute(); S.zeitHeute = 0; S.gewarnt = 0; }
-  S.zeitHeute = (S.zeitHeute || 0) + dt;
+  if (zeitStand.tag !== heute()) zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0};
+  zeitStand.sekunden += dt;
+  // Nicht in jedem Bild schreiben, das waere sechzigmal je Sekunde
+  zeitSchreibUhr += dt;
+  if (zeitSchreibUhr > 5){ zeitSchreibUhr = 0; zeitSichern(); }
   const grenze = limitMinuten() * 60;
   if (grenze <= 0) return;
-  const rest = grenze - S.zeitHeute;
+  const rest = grenze - zeitStand.sekunden;
   for (const marke of [300, 60]){
-    if (rest <= marke && (S.gewarnt || 0) < marke){
-      S.gewarnt = marke;
+    if (rest <= marke && (zeitStand.gewarnt || 0) < marke){
+      zeitStand.gewarnt = marke;
       melde(marke === 300 ? 'Noch fünf Minuten für heute' : 'Noch eine Minute für heute', 'schlecht');
       klang('kaputt');
     }
   }
-  if (rest <= 0 && schleier.hidden) zeigeZeitEnde();
+  if (rest <= 0 && schleier.hidden){ zeitSichern(); zeigeZeitEnde(); }
 }
 
 function zeigeZeitEnde(){
@@ -343,7 +365,6 @@ const S = {
   gekauft:['schaufel','pickel'],
   treibstoff:100, leben:100,
   tiefstes:0, funk:[], gewonnen:false, ton:true,
-  zeitTag:'', zeitHeute:0, gewarnt:0,
 };
 
 const P = {
@@ -2547,7 +2568,7 @@ function hud(){
     const grenze = limitMinuten() * 60;
     zf.hidden = grenze <= 0;
     if (grenze > 0){
-      const rest = Math.max(0, Math.ceil(grenze - (S.zeitHeute || 0)));
+      const rest = Math.max(0, Math.ceil(grenze - zeitStand.sekunden));
       document.getElementById('zeitRest').textContent =
         Math.floor(rest/60) + ':' + String(rest % 60).padStart(2, '0');
     }
@@ -2974,6 +2995,7 @@ function neuAnfangen(){
 }
 
 addEventListener('beforeunload', speichere);
+addEventListener('beforeunload', zeitSichern);
 
 /* ========================================================================== */
 /*                                 Schleife                                   */
@@ -3047,6 +3069,7 @@ document.getElementById('btnTon').onclick = e => {
 
 passeGroesseAn();
 baueAlleKachelbilder();
+zeitLaden();
 
 const zuletzt = localStorage.getItem(SPIELER_ZULETZT);
 if (zuletzt && spielerListe().includes(zuletzt)){
@@ -3071,8 +3094,8 @@ window.neuAnfangen = neuAnfangen;
      zeitLimit(30)         Limit auf 30 Minuten je Tag, 0 schaltet es ab
      zeitLimit()           zeigt das geltende Limit                        */
 window.zeitZuruecksetzen = function(){
-  S.zeitHeute = 0; S.gewarnt = 0; S.zeitTag = heute();
-  speichere(); hud(); fensterZu();
+  zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0};
+  zeitSichern(); hud(); fensterZu();
   melde('Die Spielzeit für heute ist zurückgesetzt', 'gold');
   return 'Spielzeit zurückgesetzt, ' + limitMinuten() + ' Minuten stehen wieder offen';
 };
@@ -3080,6 +3103,6 @@ window.zeitLimit = function(minuten){
   if (minuten === undefined) return limitMinuten() + ' Minuten je Tag';
   const n = Math.max(0, Math.min(600, parseInt(minuten, 10) || 0));
   try { localStorage.setItem(ZEIT, String(n)); } catch(e){}
-  S.gewarnt = 0; hud();
+  zeitStand.gewarnt = 0; hud();
   return n === 0 ? 'Zeitlimit abgeschaltet' : 'Zeitlimit auf ' + n + ' Minuten je Tag';
 };

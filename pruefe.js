@@ -677,29 +677,29 @@ pruefe('Kachelvarianten gebaut', lies('kachelBild[ERDE].length') === lies('VARIA
 lies('localStorage.removeItem(ZEIT)');
 pruefe('Standardlimit sind 20 Minuten', lies('limitMinuten()') === 20);
 
-lies("S.zeitTag = heute(); S.zeitHeute = 0; S.gewarnt = 0; fensterZu()");
+lies("zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0}; fensterZu()");
 for (let i = 0; i < 120; i++) lies('aktualisiere(1/60)');
-pruefe('Gespielte Zeit wird gezaehlt', lies('S.zeitHeute') > 1.5,
-  lies('S.zeitHeute').toFixed(1) + ' s nach 2 s Spiel');
+pruefe('Gespielte Zeit wird gezaehlt', lies('zeitStand.sekunden') > 1.5,
+  lies('zeitStand.sekunden').toFixed(1) + ' s nach 2 s Spiel');
 lies('hud()');
 pruefe('Die Kopfleiste zeigt die Restzeit',
   /^\d+:\d\d$/.test(lies(`document.getElementById('zeitRest').textContent`)),
   lies(`document.getElementById('zeitRest').textContent`));
 
 /* Kurz vor Schluss muss gewarnt werden, danach ist zu */
-lies('S.zeitHeute = limitMinuten()*60 - 1; S.gewarnt = 0; fensterZu()');
+lies('zeitStand.sekunden = limitMinuten()*60 - 1; zeitStand.gewarnt = 0; fensterZu()');
 for (let i = 0; i < 180; i++) lies('aktualisiere(1/60)');   // 3 s, also ueber die Null hinaus
-pruefe('Vor dem Ende wird gewarnt', lies('S.gewarnt') > 0, 'Marke ' + lies('S.gewarnt'));
+pruefe('Vor dem Ende wird gewarnt', lies('zeitStand.gewarnt') > 0, 'Marke ' + lies('zeitStand.gewarnt'));
 pruefe('Bei null ist Schluss', lies('document.getElementById("schleier").hidden') === false);
 pruefe('Und das Fenster sagt es',
   lies(`document.getElementById('fensterTitel').textContent`) === 'Für heute ist Schluss');
 lies('fensterZu()');
 
 /* Ein neuer Tag setzt die Uhr zurueck */
-lies("S.zeitTag = '2000-01-01'; S.zeitHeute = 9999; fensterZu()");
+lies("zeitStand = {tag:'2000-01-01', sekunden:9999, gewarnt:0}; fensterZu()");
 lies('aktualisiere(1/60)');
-pruefe('Ein neuer Tag beginnt bei null', lies('S.zeitHeute') < 1,
-  lies('S.zeitHeute').toFixed(2) + ' s');
+pruefe('Ein neuer Tag beginnt bei null', lies('zeitStand.sekunden') < 1,
+  lies('zeitStand.sekunden').toFixed(2) + ' s');
 
 /* ------------------------------- Bericht --------------------------------- */
 function bericht(){
@@ -732,20 +732,28 @@ function bericht(){
     pruefe('Die Konsolenbefehle stehen bereit',
       lies('typeof window.zeitZuruecksetzen') === 'function'
       && lies('typeof window.zeitLimit') === 'function');
-    lies('S.zeitHeute = 900; S.gewarnt = 300');
+    lies('zeitStand.sekunden = 900; zeitStand.gewarnt = 300');
     lies('window.zeitZuruecksetzen()');
-    pruefe('Zuruecksetzen stellt die Uhr auf null', lies('S.zeitHeute') === 0);
-    pruefe('Und die Warnung wieder scharf', lies('S.gewarnt') === 0);
+    pruefe('Zuruecksetzen stellt die Uhr auf null', lies('zeitStand.sekunden') === 0);
+    pruefe('Und die Warnung wieder scharf', lies('zeitStand.gewarnt') === 0);
     lies('window.zeitLimit(35)');
     pruefe('Das Limit laesst sich setzen', lies('limitMinuten()') === 35);
     lies('window.zeitLimit(0)');
     pruefe('Null schaltet es ab', lies('limitMinuten()') === 0);
-    lies('S.zeitHeute = 999999; fensterZu()');
+    lies('zeitStand.sekunden = 999999; fensterZu()');
     for (let i = 0; i < 60; i++) lies('aktualisiere(1/60)');
     pruefe('Ohne Limit ist nie Schluss',
       lies('document.getElementById("schleier").hidden') === true);
     lies('window.zeitLimit(20)');
     pruefe('Und wieder zurueck auf zwanzig', lies('limitMinuten()') === 20);
+    /* Der eigentliche Punkt: die Uhr haengt am Geraet, nicht am Spielstand.
+       Sonst gaebe ein neuer Name auf dem Startbildschirm frische Minuten. */
+    lies('zeitStand.sekunden = 600; zeitSichern()');
+    pruefe('Die Zeit steht nicht im Spielstand',
+      !JSON.stringify(lies('S')).includes('zeitHeute'));
+    lies('SCHLUESSEL = schluesselFuer("EinAndererName"); lade()');
+    pruefe('Ein anderer Spieler erbt die verbrauchte Zeit',
+      lies('zeitStand.sekunden') === 600, lies('zeitStand.sekunden') + ' s');
   } catch (e){ fehler.push('bei der Spielzeit: ' + e.stack); }
   bericht();
 })();

@@ -17,7 +17,7 @@ Entwicklerkonsole mit `neuAnfangen()`.
 
 ## Spielzeit begrenzen
 
-Zwanzig Minuten je Spieler und Tag. Die Zeit läuft nur während des Spielens,
+Zwanzig Minuten je **Gerät** und Tag, über alle Spielernamen hinweg. Die Zeit läuft nur während des Spielens,
 bei offenem Fenster steht sie still. Die Kopfleiste zeigt die Restzeit, bei
 fünf Minuten und bei einer Minute kommt eine Warnung, danach ist Schluss und
 der Stand ist gesichert. Am nächsten Tag beginnt die Uhr von vorn.
