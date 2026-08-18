@@ -677,7 +677,7 @@ pruefe('Kachelvarianten gebaut', lies('kachelBild[ERDE].length') === lies('VARIA
 lies('localStorage.removeItem(ZEIT)');
 pruefe('Standardlimit sind 20 Minuten', lies('limitMinuten()') === 20);
 
-lies("zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0}; fensterZu()");
+lies("zeitStand = {sekunden: 0, gewarnt: 0}; fensterZu()");
 for (let i = 0; i < 120; i++) lies('aktualisiere(1/60)');
 pruefe('Gespielte Zeit wird gezaehlt', lies('zeitStand.sekunden') > 1.5,
   lies('zeitStand.sekunden').toFixed(1) + ' s nach 2 s Spiel');
@@ -696,10 +696,16 @@ pruefe('Und das Fenster sagt es',
 lies('fensterZu()');
 
 /* Ein neuer Tag setzt die Uhr zurueck */
-lies("zeitStand = {tag:'2000-01-01', sekunden:9999, gewarnt:0}; fensterZu()");
-lies('aktualisiere(1/60)');
-pruefe('Ein neuer Tag beginnt bei null', lies('zeitStand.sekunden') < 1,
-  lies('zeitStand.sekunden').toFixed(2) + ' s');
+/* Die Uhr laeuft NICHT mit dem Datum ab. Sonst setzte ein Tageswechsel sie von
+   selbst zurueck, und die Systemuhr vorzustellen ist kein Kunststueck. */
+lies("zeitStand = {sekunden: 9999, gewarnt: 0}; fensterZu()");
+lies('zeitSichern(); zeitLaden()');
+pruefe('Ein Neuladen setzt die Uhr nicht zurueck', lies('zeitStand.sekunden') > 9000,
+  lies('zeitStand.sekunden').toFixed(0) + ' s');
+pruefe('Es gibt keinen Tagesbezug mehr', !('tag' in lies('zeitStand')),
+  Object.keys(lies('zeitStand')).join(', '));
+lies('window.zeitZuruecksetzen()');
+pruefe('Nur das Zuruecksetzen gibt frei', lies('zeitStand.sekunden') === 0);
 
 /* ------------------------------- Bericht --------------------------------- */
 function bericht(){

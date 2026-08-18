@@ -91,21 +91,25 @@ const BERGE = [
    dieser Datei. */
 const ZEIT = 'levisMine.zeit';           // das Limit in Minuten
 const ZEIT_STAND = 'levisMine.zeitstand'; // die heute verbrauchte Zeit
-const STANDARD_LIMIT = 20;               // Minuten je Geraet und Tag
+const STANDARD_LIMIT = 20;               // Minuten je Geraet, bis jemand freigibt
 
 /* Die verbrauchte Zeit haengt bewusst NICHT am Spielstand. Lag sie dort, gab
    ein neuer Name auf dem Startbildschirm frische zwanzig Minuten, und das Feld
-   dafuer steht direkt daneben. Jetzt zaehlt sie geraeteweit, ueber alle Spieler
-   hinweg. */
-let zeitStand = {tag:'', sekunden:0, gewarnt:0};
+   dafuer steht direkt daneben. Sie zaehlt geraeteweit ueber alle Spieler.
+
+   Sie laeuft auch nicht mit dem Datum ab. Ein Tageswechsel setzte sie sonst von
+   selbst zurueck, und die Systemuhr vorzustellen ist kein Kunststueck. Frei
+   gibt sie allein zeitZuruecksetzen() ueber die Entwicklerkonsole. */
+let zeitStand = {sekunden:0, gewarnt:0};
 let zeitSchreibUhr = 0;
 
 function zeitLaden(){
   try {
     const d = JSON.parse(localStorage.getItem(ZEIT_STAND));
-    if (d && typeof d.sekunden === 'number') zeitStand = d;
+    if (d && typeof d.sekunden === 'number'){
+      zeitStand = {sekunden: d.sekunden, gewarnt: d.gewarnt || 0};
+    }
   } catch(e){}
-  if (zeitStand.tag !== heute()) zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0};
 }
 function zeitSichern(){
   try { localStorage.setItem(ZEIT_STAND, JSON.stringify(zeitStand)); } catch(e){}
@@ -117,12 +121,10 @@ const limitMinuten = () => {
     return Number.isFinite(n) ? n : STANDARD_LIMIT;
   } catch(e){ return STANDARD_LIMIT; }
 };
-const heute = () => new Date().toISOString().slice(0, 10);
 
 /* Verbrauchte Zeit je Spieler und Tag. Sie zaehlt nur, waehrend wirklich
    gespielt wird: bei offenem Fenster laeuft die Schleife ohnehin nicht. */
 function zeitTicken(dt){
-  if (zeitStand.tag !== heute()) zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0};
   zeitStand.sekunden += dt;
   // Nicht in jedem Bild schreiben, das waere sechzigmal je Sekunde
   zeitSchreibUhr += dt;
@@ -143,9 +145,10 @@ function zeitTicken(dt){
 function zeigeZeitEnde(){
   speichere();
   fenster('Für heute ist Schluss', `
-    <p class="hinweis">Du hast heute ${limitMinuten()} Minuten gespielt.</p>
+    <p class="hinweis">Deine ${limitMinuten()} Minuten sind aufgebraucht.</p>
     <p>Dein Berg bleibt genau so, wie er jetzt ist, mit ${zahl(S.gold)} Goldstücken
-    und ${S.tiefstes} Metern als tiefstem Punkt. Morgen geht es weiter.</p>`);
+    und ${S.tiefstes} Metern als tiefstem Punkt. Es geht weiter, sobald jemand
+    die Zeit wieder freigibt.</p>`);
 }
 
 /* ---------------------------- Spielerauswahl ----------------------------- */
@@ -3090,19 +3093,19 @@ window.neuAnfangen = neuAnfangen;
 
 /* Fuer die Eltern, ueber die Entwicklerkonsole. Bewusst nicht im Spiel:
    was Levi sehen kann, kann Levi auch bedienen.
-     zeitZuruecksetzen()   heutige Spielzeit wieder auf null
-     zeitLimit(30)         Limit auf 30 Minuten je Tag, 0 schaltet es ab
+     zeitZuruecksetzen()   Spielzeit wieder auf null, der einzige Weg zurueck
+     zeitLimit(30)         Limit auf 30 Minuten, 0 schaltet es ab
      zeitLimit()           zeigt das geltende Limit                        */
 window.zeitZuruecksetzen = function(){
-  zeitStand = {tag: heute(), sekunden: 0, gewarnt: 0};
+  zeitStand = {sekunden: 0, gewarnt: 0};
   zeitSichern(); hud(); fensterZu();
-  melde('Die Spielzeit für heute ist zurückgesetzt', 'gold');
+  melde('Die Spielzeit ist zurückgesetzt', 'gold');
   return 'Spielzeit zurückgesetzt, ' + limitMinuten() + ' Minuten stehen wieder offen';
 };
 window.zeitLimit = function(minuten){
-  if (minuten === undefined) return limitMinuten() + ' Minuten je Tag';
+  if (minuten === undefined) return limitMinuten() + ' Minuten bis zur Freigabe';
   const n = Math.max(0, Math.min(600, parseInt(minuten, 10) || 0));
   try { localStorage.setItem(ZEIT, String(n)); } catch(e){}
   zeitStand.gewarnt = 0; hud();
-  return n === 0 ? 'Zeitlimit abgeschaltet' : 'Zeitlimit auf ' + n + ' Minuten je Tag';
+  return n === 0 ? 'Zeitlimit abgeschaltet' : 'Zeitlimit auf ' + n + ' Minuten';
 };

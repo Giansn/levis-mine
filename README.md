@@ -17,10 +17,14 @@ Entwicklerkonsole mit `neuAnfangen()`.
 
 ## Spielzeit begrenzen
 
-Zwanzig Minuten je **Gerät** und Tag, über alle Spielernamen hinweg. Die Zeit läuft nur während des Spielens,
-bei offenem Fenster steht sie still. Die Kopfleiste zeigt die Restzeit, bei
-fünf Minuten und bei einer Minute kommt eine Warnung, danach ist Schluss und
-der Stand ist gesichert. Am nächsten Tag beginnt die Uhr von vorn.
+Zwanzig Minuten je **Gerät**, über alle Spielernamen hinweg. Die Zeit läuft nur
+während des Spielens, bei offenem Fenster steht sie still. Die Kopfleiste zeigt
+die Restzeit, bei fünf Minuten und bei einer Minute kommt eine Warnung, danach
+ist Schluss und der Stand ist gesichert.
+
+Die Uhr läuft **nicht** mit dem Datum ab. Ein Tageswechsel würde sie von selbst
+freigeben, und die Systemuhr vorzustellen ist kein Kunststück. Frei gibt sie
+allein `zeitZuruecksetzen()`.
 
 Bewusst gibt es dafür **keinen Bereich im Spiel**: was das Kind sehen kann,
 kann es auch bedienen. Gesteuert wird über die Entwicklerkonsole, `F12` und
