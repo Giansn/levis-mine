@@ -674,9 +674,8 @@ pruefe('Kachelvarianten gebaut', lies('kachelBild[ERDE].length') === lies('VARIA
   lies('VARIANTEN') + ' Varianten');
 
 /* --------------------------- Zeit und Elternsperre ------------------------ */
-lies('localStorage.removeItem(ELTERN)');
+lies('localStorage.removeItem(ZEIT)');
 pruefe('Standardlimit sind 20 Minuten', lies('limitMinuten()') === 20);
-pruefe('Ohne Passwort ist keine Sperre gesetzt', lies('sperreGesetzt()') === false);
 
 lies("S.zeitTag = heute(); S.zeitHeute = 0; S.gewarnt = 0; fensterZu()");
 for (let i = 0; i < 120; i++) lies('aktualisiere(1/60)');
@@ -720,25 +719,33 @@ function bericht(){
   process.exitCode = (schlecht || fehler.length) ? 1 : 0;
 }
 
-/* Das Passwort wird asynchron geprueft, darum wartet der Bericht darauf. */
+/* Kein Elternbereich mehr im Spiel: was Levi sehen kann, kann Levi bedienen.
+   Zurueckgesetzt wird ueber die Konsole. */
 (async () => {
   try {
-    lies('localStorage.removeItem(ELTERN)');
-    const gesetzt = await lies("passwortSetzen('geheim')");
-    pruefe('Passwort laesst sich setzen', gesetzt === true);
-    pruefe('Danach ist die Sperre gesetzt', lies('sperreGesetzt()') === true);
-    pruefe('Es liegt nicht im Klartext',
-      !JSON.stringify(lies('elternDaten()')).includes('geheim'),
-      Object.keys(lies('elternDaten()')).join(', '));
-    pruefe('Ein Salz ist dabei', !!lies('elternDaten().salz'));
-    pruefe('Das richtige Passwort passt', (await lies("passwortStimmt('geheim')")) === true);
-    pruefe('Ein falsches nicht', (await lies("passwortStimmt('falsch')")) === false);
-    pruefe('Ein leeres auch nicht', (await lies("passwortStimmt('')")) === false);
-    pruefe('Zu kurze Passwoerter werden abgelehnt',
-      (await lies("passwortSetzen('ab')")) === false);
-    lies('localStorage.removeItem(ELTERN)');
-    pruefe('Ohne gesetzte Sperre passt kein Passwort',
-      (await lies("passwortStimmt('geheim')")) === false);
-  } catch (e){ fehler.push('bei der Elternsperre: ' + e.stack); }
+    pruefe('Kein Elternbereich im Optionsfenster', (() => {
+      lies('zeigeOptionen()');
+      const i = lies(`document.getElementById('fensterInhalt').innerHTML`);
+      lies('fensterZu()');
+      return !i.includes('Elternbereich') && !i.includes('Passwort');
+    })());
+    pruefe('Die Konsolenbefehle stehen bereit',
+      lies('typeof window.zeitZuruecksetzen') === 'function'
+      && lies('typeof window.zeitLimit') === 'function');
+    lies('S.zeitHeute = 900; S.gewarnt = 300');
+    lies('window.zeitZuruecksetzen()');
+    pruefe('Zuruecksetzen stellt die Uhr auf null', lies('S.zeitHeute') === 0);
+    pruefe('Und die Warnung wieder scharf', lies('S.gewarnt') === 0);
+    lies('window.zeitLimit(35)');
+    pruefe('Das Limit laesst sich setzen', lies('limitMinuten()') === 35);
+    lies('window.zeitLimit(0)');
+    pruefe('Null schaltet es ab', lies('limitMinuten()') === 0);
+    lies('S.zeitHeute = 999999; fensterZu()');
+    for (let i = 0; i < 60; i++) lies('aktualisiere(1/60)');
+    pruefe('Ohne Limit ist nie Schluss',
+      lies('document.getElementById("schleier").hidden') === true);
+    lies('window.zeitLimit(20)');
+    pruefe('Und wieder zurueck auf zwanzig', lies('limitMinuten()') === 20);
+  } catch (e){ fehler.push('bei der Spielzeit: ' + e.stack); }
   bericht();
 })();

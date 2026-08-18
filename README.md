@@ -15,6 +15,28 @@ xdg-open /home/g2thek/Desktop/levis-mine/index.html
 Der Spielstand liegt im Browser (`localStorage`). Von vorn anfangen geht in der
 Entwicklerkonsole mit `neuAnfangen()`.
 
+## Spielzeit begrenzen
+
+Zwanzig Minuten je Spieler und Tag. Die Zeit läuft nur während des Spielens,
+bei offenem Fenster steht sie still. Die Kopfleiste zeigt die Restzeit, bei
+fünf Minuten und bei einer Minute kommt eine Warnung, danach ist Schluss und
+der Stand ist gesichert. Am nächsten Tag beginnt die Uhr von vorn.
+
+Bewusst gibt es dafür **keinen Bereich im Spiel**: was das Kind sehen kann,
+kann es auch bedienen. Gesteuert wird über die Entwicklerkonsole, `F12` und
+dann Konsole:
+
+```js
+zeitZuruecksetzen()   // heutige Spielzeit auf null, es geht sofort weiter
+zeitLimit(30)         // Limit auf 30 Minuten je Tag
+zeitLimit(0)          // Limit abschalten
+zeitLimit()           // zeigt das geltende Limit
+```
+
+Das hält ein Kind auf, das einfach weiterspielen will. Wer die Konsole selbst
+öffnet oder den Browserspeicher löscht, kommt daran vorbei. Ohne Server lässt
+sich das nicht ändern.
+
 ## Steuerung
 
 | Taste | Wirkung |

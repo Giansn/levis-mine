@@ -84,58 +84,21 @@ const BERGE = [
    text:'Der härteste Berg. Unten liegt das Gold in dicken Adern.'},
 ];
 
-/* ------------------------------ Elternsperre ----------------------------- */
-/* Zeitlimit je Spieler und Tag, dazu ein Passwort, mit dem sich Zeit
-   nachlegen laesst. Das Passwort ist eine ELTERNSPERRE, kein Kontoschutz:
-   ohne Server kann eine Seite nichts wirklich schuetzen. Es haelt ein Kind
-   auf, nicht jemanden, der die Entwicklerwerkzeuge oeffnet. Darum liegt es
-   auch nicht im Klartext, sondern als Pruefsumme mit Zufallssalz. */
-const ELTERN = 'levisMine.eltern';
+/* -------------------------------- Spielzeit ------------------------------ */
+/* Zwanzig Minuten je Spieler und Tag. Kein Elternbereich im Spiel: was Levi
+   sehen kann, kann Levi auch bedienen. Zurueckgesetzt wird von aussen, ueber
+   die Entwicklerkonsole, siehe zeitZuruecksetzen() und zeitLimit() am Ende
+   dieser Datei. */
+const ZEIT = 'levisMine.zeit';
 const STANDARD_LIMIT = 20;            // Minuten je Spieler und Tag
 
-const elternDaten = () => {
-  try { return JSON.parse(localStorage.getItem(ELTERN)) || {}; } catch(e){ return {}; }
-};
-const elternSchreiben = d => { try { localStorage.setItem(ELTERN, JSON.stringify(d)); } catch(e){} };
 const limitMinuten = () => {
-  const d = elternDaten();
-  return typeof d.limit === 'number' ? d.limit : STANDARD_LIMIT;
+  try {
+    const n = parseInt(localStorage.getItem(ZEIT), 10);
+    return Number.isFinite(n) ? n : STANDARD_LIMIT;
+  } catch(e){ return STANDARD_LIMIT; }
 };
 const heute = () => new Date().toISOString().slice(0, 10);
-
-/* Pruefsumme ueber Passwort und Salz. In einem sicheren Kontext uebernimmt das
-   der Browser, aus einer lokalen Datei heraus gibt es crypto.subtle nicht, dann
-   bleibt nur eine einfache Streuung. Die verschleiert, mehr nicht, und das ist
-   fuer eine Elternsperre der ehrliche Rahmen. */
-async function streuwert(text, salz){
-  const roh = salz + '\u0000' + text;
-  if (globalThis.crypto && crypto.subtle){
-    const puffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(roh));
-    return [...new Uint8Array(puffer)].map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-  let h = 2166136261;
-  for (let i = 0; i < roh.length; i++){ h ^= roh.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return 'einfach:' + (h >>> 0).toString(16);
-}
-
-const sperreGesetzt = () => !!elternDaten().hash;
-
-async function passwortSetzen(text){
-  if (!text || text.length < 3) return false;
-  const salz = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  const d = elternDaten();
-  d.salz = salz;
-  d.hash = await streuwert(text, salz);
-  if (typeof d.limit !== 'number') d.limit = STANDARD_LIMIT;
-  elternSchreiben(d);
-  return true;
-}
-
-async function passwortStimmt(text){
-  const d = elternDaten();
-  if (!d.hash) return false;
-  return await streuwert(text || '', d.salz) === d.hash;
-}
 
 /* Verbrauchte Zeit je Spieler und Tag. Sie zaehlt nur, waehrend wirklich
    gespielt wird: bei offenem Fenster laeuft die Schleife ohnehin nicht. */
@@ -158,60 +121,9 @@ function zeitTicken(dt){
 function zeigeZeitEnde(){
   speichere();
   fenster('Für heute ist Schluss', `
-    <p class="hinweis">Du hast heute ${limitMinuten()} Minuten gespielt. Morgen geht es weiter,
-    dein Berg bleibt genau so, wie er jetzt ist.</p>
-    ${sperreGesetzt() ? `
-      <h3 class="abschnitt">Für Eltern</h3>
-      <div class="gitter">
-        <div class="ware">
-          <div class="kopf2"><b>Zeit nachlegen</b></div>
-          <p>Mit dem Elternpasswort gibt es zehn Minuten dazu.</p>
-          <input id="pwFeld" type="password" maxlength="40" placeholder="Passwort"
-                 style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
-                        border:2px solid var(--kante);font:inherit;font-size:15px">
-          <button class="kauf" data-tat="zeitDazu">Zehn Minuten dazu</button>
-        </div>
-      </div>` : `
-      <p class="hinweis">Es ist kein Elternpasswort gesetzt. Wer eines setzt, kann Zeit nachlegen.
-      Das geht über <kbd>Esc</kbd> und dann Elternbereich.</p>`}`);
-}
-
-function zeigeEltern(nachricht){
-  const d = elternDaten();
-  fenster('Elternbereich', `
-    <p class="hinweis">Zeitlimit je Spieler und Tag: <b>${limitMinuten()} Minuten</b>.
-    ${spieler ? spieler + ' hat heute ' + Math.floor((S.zeitHeute||0)/60) + ' Minuten gespielt.' : ''}</p>
-    ${nachricht ? `<div class="gefahr">${nachricht}</div>` : ''}
-    <h3 class="abschnitt">${sperreGesetzt() ? 'Passwort ändern' : 'Passwort setzen'}</h3>
-    <div class="gitter">
-      ${sperreGesetzt() ? `
-      <div class="ware">
-        <div class="kopf2"><b>Bisheriges Passwort</b></div>
-        <p>Zum Ändern zuerst das alte eingeben.</p>
-        <input id="pwAlt" type="password" maxlength="40" placeholder="altes Passwort"
-               style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
-                      border:2px solid var(--kante);font:inherit;font-size:15px">
-      </div>` : ''}
-      <div class="ware">
-        <div class="kopf2"><b>${sperreGesetzt() ? 'Neues Passwort' : 'Passwort'}</b></div>
-        <p>Mindestens drei Zeichen. Es wird nicht im Klartext abgelegt.</p>
-        <input id="pwNeu" type="password" maxlength="40" placeholder="Passwort"
-               style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
-                      border:2px solid var(--kante);font:inherit;font-size:15px">
-        <button class="kauf" data-tat="pwSetzen">Speichern</button>
-      </div>
-      <div class="ware">
-        <div class="kopf2"><b>Limit ändern</b><span style="color:var(--matt)">${limitMinuten()} min</span></div>
-        <p>Minuten je Tag. Null schaltet das Limit ab. Braucht das Passwort.</p>
-        <input id="pwLimitWort" type="password" maxlength="40" placeholder="Passwort"
-               style="width:100%;padding:8px;margin-bottom:5px;background:var(--platte-tief);
-                      color:var(--schrift);border:2px solid var(--kante);font:inherit;font-size:15px">
-        <input id="limitFeld" type="number" min="0" max="600" value="${limitMinuten()}"
-               style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
-                      border:2px solid var(--kante);font:inherit;font-size:15px">
-        <button class="kauf zweit" data-tat="limitSetzen">Limit speichern</button>
-      </div>
-    </div>`);
+    <p class="hinweis">Du hast heute ${limitMinuten()} Minuten gespielt.</p>
+    <p>Dein Berg bleibt genau so, wie er jetzt ist, mit ${zahl(S.gold)} Goldstücken
+    und ${S.tiefstes} Metern als tiefstem Punkt. Morgen geht es weiter.</p>`);
 }
 
 /* ---------------------------- Spielerauswahl ----------------------------- */
@@ -316,8 +228,6 @@ function zeigeOptionen(nachfrage){
       <div class="ware"><div class="kopf2"><b>Laden</b></div><p>Ausrüstung kaufen und Erz verkaufen.</p>${knopf('laden', 'Laden öffnen', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Berge</b></div><p>Berg wechseln oder einen neuen öffnen.</p>${knopf('berge', 'Berge zeigen', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Hilfe</b></div><p>Steuerung und Spielregeln.</p>${knopf('hilfe', 'Hilfe zeigen', 'zweit')}</div>
-      <div class="ware"><div class="kopf2"><b>Eltern</b><span style="color:var(--matt)">${limitMinuten()} min</span></div>
-        <p>Zeitlimit und Passwort.</p>${knopf('eltern', 'Elternbereich', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Spieler</b><span style="color:var(--matt)">${spieler || 'ohne Namen'}</span></div>
         <p>Jeder Name hat einen eigenen Berg.</p>${knopf('wechseln', 'Spieler wechseln', 'zweit')}</div>
     </div>
@@ -338,38 +248,6 @@ function tueEs(tat){
   else if (tat === 'neu') zeigeOptionen(true);      // erst nachfragen
   else if (tat === 'neuJa') neuAnfangen();
   else if (tat === 'wechseln') zeigeAnmeldung();
-  else if (tat === 'eltern') zeigeEltern();
-  else if (tat === 'pwSetzen'){
-    const alt = (document.getElementById('pwAlt') || {}).value || '';
-    const neu = (document.getElementById('pwNeu') || {}).value || '';
-    (sperreGesetzt() ? passwortStimmt(alt) : Promise.resolve(true)).then(ok => {
-      if (!ok) return zeigeEltern('Das bisherige Passwort stimmt nicht.');
-      passwortSetzen(neu).then(gesetzt =>
-        zeigeEltern(gesetzt ? 'Passwort gespeichert.' : 'Mindestens drei Zeichen.'));
-    });
-  }
-  else if (tat === 'limitSetzen'){
-    const wort = (document.getElementById('pwLimitWort') || {}).value || '';
-    const zahlFeld = (document.getElementById('limitFeld') || {}).value;
-    passwortStimmt(wort).then(ok => {
-      if (!ok) return zeigeEltern('Passwort stimmt nicht, das Limit bleibt.');
-      const d = elternDaten();
-      d.limit = Math.max(0, Math.min(600, parseInt(zahlFeld, 10) || 0));
-      elternSchreiben(d);
-      S.gewarnt = 0;
-      zeigeEltern('Limit auf ' + d.limit + ' Minuten gesetzt.');
-    });
-  }
-  else if (tat === 'zeitDazu'){
-    const wort = (document.getElementById('pwFeld') || {}).value || '';
-    passwortStimmt(wort).then(ok => {
-      if (!ok){ melde('Passwort stimmt nicht', 'schlecht'); return; }
-      S.zeitHeute = Math.max(0, (S.zeitHeute || 0) - 600);
-      S.gewarnt = 0;
-      fensterZu();
-      melde('Zehn Minuten dazu', 'gold');
-    });
-  }
   else if (tat.startsWith('anmelden:')) anmelden(tat.slice(9));
   else if (tat === 'neuerSpieler'){
     const feld = document.getElementById('neuerName');
@@ -3186,3 +3064,22 @@ requestAnimationFrame(schleife);
 
 // Fuer die Konsole, falls Levi einmal von vorn anfangen will
 window.neuAnfangen = neuAnfangen;
+
+/* Fuer die Eltern, ueber die Entwicklerkonsole. Bewusst nicht im Spiel:
+   was Levi sehen kann, kann Levi auch bedienen.
+     zeitZuruecksetzen()   heutige Spielzeit wieder auf null
+     zeitLimit(30)         Limit auf 30 Minuten je Tag, 0 schaltet es ab
+     zeitLimit()           zeigt das geltende Limit                        */
+window.zeitZuruecksetzen = function(){
+  S.zeitHeute = 0; S.gewarnt = 0; S.zeitTag = heute();
+  speichere(); hud(); fensterZu();
+  melde('Die Spielzeit für heute ist zurückgesetzt', 'gold');
+  return 'Spielzeit zurückgesetzt, ' + limitMinuten() + ' Minuten stehen wieder offen';
+};
+window.zeitLimit = function(minuten){
+  if (minuten === undefined) return limitMinuten() + ' Minuten je Tag';
+  const n = Math.max(0, Math.min(600, parseInt(minuten, 10) || 0));
+  try { localStorage.setItem(ZEIT, String(n)); } catch(e){}
+  S.gewarnt = 0; hud();
+  return n === 0 ? 'Zeitlimit abgeschaltet' : 'Zeitlimit auf ' + n + ' Minuten je Tag';
+};
