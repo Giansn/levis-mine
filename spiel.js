@@ -1087,7 +1087,7 @@ function bohre(dt){
   P.fortschritt += dt * tempo * faktor;
 
   if (Math.random() < dt*22) funke(x+0.5, y+0.5, (Math.random()-0.5)*4, -Math.random()*3, g.korn, 0.3);
-  if (Math.random() < dt*9) klang('hack');
+  if (Math.random() < dt*9) klangGraben(g.haerte, false);
 
   const arbeit = 0.34 + 0.36 * g.haerte;
   if (P.fortschritt < arbeit) return;
@@ -1120,10 +1120,11 @@ function brichKachel(x, y, werkzeug){
     const n = nimmMaterial(g.erz, 1);
     if (n) melde('+1 ' + MATERIAL[g.erz].name, 'gold', 'erz');
     staub(x+0.5, y+0.5, 9, MATERIAL[g.erz].farbe);
+    klangGraben(g.haerte, true);          // erst der Bruch, dann das Funkeln
     klang('erz');
   } else {
     staub(x+0.5, y+0.5, 6, g.korn);
-    klang('bruch');
+    klangGraben(g.haerte, true);
   }
 
   if (werkzeug){
@@ -1350,8 +1351,6 @@ function funkenTick(dt){
 
 let audio = null;
 const KLANG = {
-  hack:     {f:150, d:0.05, t:'square',   v:0.035},
-  bruch:    {f:110, d:0.11, t:'triangle', v:0.07},
   erz:      {f:880, d:0.12, t:'sine',     v:0.08, zu:1320},
   muenze:   {f:660, d:0.20, t:'sine',     v:0.10, zu:1180},
   holz:     {f:210, d:0.10, t:'triangle', v:0.08},
@@ -1369,6 +1368,72 @@ const KLANG = {
   wagen:    {f:330, d:0.26, t:'square',   v:0.06, zu:520},
 };
 let klangSperre = 0;
+
+/* Erde klingt nicht nach einem Ton, sondern nach Rauschen: ein kurzer, dumpfer
+   Knirscher ohne erkennbare Tonhoehe. Ein Oszillator kann das nicht, ein
+   gefilterter Rauschstoss schon. Je haerter das Gestein, desto heller und
+   kuerzer, und jeder Schlag wird leicht verstimmt, damit rasches Graben nicht
+   mechanisch klingt. */
+let rauschen = null;
+
+function rauschQuelle(){
+  if (!rauschen){
+    const n = Math.floor(audio.sampleRate * 0.5);
+    rauschen = audio.createBuffer(1, n, audio.sampleRate);
+    const d = rauschen.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random()*2 - 1;
+  }
+  const q = audio.createBufferSource();
+  q.buffer = rauschen;
+  q.loop = true;
+  return q;
+}
+
+function klangGraben(haerte, durchbruch){
+  if (!S.ton) return;
+  const jetzt = performance.now();
+  if (!durchbruch){
+    if (jetzt - klangSperre < 70) return;      // beim Schlagen nicht ueberlagern
+    klangSperre = jetzt;
+  }
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    const t = audio.currentTime;
+    const h = Math.max(1, Math.min(4, haerte || 1));
+    const grund = 420 + h * 620;                      // Erde dumpf, Granit hell
+    const dauer = (durchbruch ? 0.20 : 0.075) + h * 0.012;
+
+    const q = rauschQuelle();
+    const filter = audio.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(grund * (0.8 + Math.random()*0.4), t);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(120, grund*0.35), t + dauer);
+    filter.Q.value = 0.6 + h * 0.35;
+
+    const g = audio.createGain();
+    const spitze = (durchbruch ? 0.15 : 0.05) * (0.8 + Math.random()*0.4);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(spitze, t + 0.006);   // harter Anschlag
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dauer);
+
+    q.connect(filter); filter.connect(g); g.connect(audio.destination);
+    q.start(t, Math.random()*0.4);
+    q.stop(t + dauer + 0.02);
+
+    // Beim Durchbruch ein tiefer Schlag darunter, der gibt der Kachel Gewicht
+    if (durchbruch){
+      const o = audio.createOscillator(), og = audio.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(95 - h*7, t);
+      o.frequency.exponentialRampToValueAtTime(38, t + dauer);
+      og.gain.setValueAtTime(0.08, t);
+      og.gain.exponentialRampToValueAtTime(0.0001, t + dauer);
+      o.connect(og); og.connect(audio.destination);
+      o.start(t); o.stop(t + dauer + 0.02);
+    }
+  } catch(e){ /* ohne Ton weiterspielen */ }
+}
 
 function klang(name){
   if (!S.ton) return;
