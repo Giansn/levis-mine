@@ -601,6 +601,34 @@ pruefe('Und graebt sich weiter hinunter',
   lies('P.y + P.h') > leiter.y + 4,
   'von Zeile ' + (leiter.y+1) + ' auf ' + lies('(P.y + P.h).toFixed(1)'));
 
+/* ------------------------------- Tasten ---------------------------------- */
+/* Das Spiel hoert auf jeden Tastendruck im Fenster: h Hilfe, m Berge, k Laden,
+   Leertaste Stuetzbalken. Beim Tippen eines Wortes loeste das lauter Befehle
+   aus, die Passwortmaske und das Namensfeld waren dadurch unbedienbar. */
+const feldEreignis = k => ({key: k, target: {tagName: 'INPUT'}});
+const spielEreignis = k => ({key: k, target: {tagName: 'BODY'}});
+
+lies('gesperrt = false'); lies('fensterZu()');
+lies(`tastenDruck(${JSON.stringify(feldEreignis('h'))})`);
+pruefe('Ein h im Eingabefeld oeffnet nicht die Hilfe',
+  lies('document.getElementById("schleier").hidden') === true);
+lies(`tastenDruck(${JSON.stringify(feldEreignis(' '))})`);
+const balkenVorher = lies('S.balken');
+pruefe('Eine Leertaste im Feld setzt keinen Balken', lies('S.balken') === balkenVorher);
+lies(`tastenDruck(${JSON.stringify(feldEreignis('ArrowDown'))})`);
+pruefe('Eine Pfeiltaste im Feld bewegt Levi nicht', lies('taste.ab') !== true);
+
+lies(`tastenDruck(${JSON.stringify(spielEreignis('h'))})`);
+pruefe('Ausserhalb des Feldes oeffnet h die Hilfe',
+  lies('document.getElementById("schleier").hidden') === false);
+lies('fensterZu()');
+
+lies('gesperrt = true');
+lies(`tastenDruck(${JSON.stringify(spielEreignis('h'))})`);
+pruefe('Hinter dem Vorhang tut keine Taste etwas',
+  lies('document.getElementById("schleier").hidden') === true);
+lies('gesperrt = false');
+
 /* ------------------------------ Optionen --------------------------------- */
 const inhalt = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
 lies('fensterZu()');

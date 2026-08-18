@@ -772,8 +772,20 @@ const KARTE = {
   w:'auf', s:'ab', a:'links', d:'rechts',
 };
 
-addEventListener('keydown', e => {
+/* Gilt der Tastendruck dem Spiel oder einem Eingabefeld? Ohne diese Frage
+   loeste das Tippen eines Wortes lauter Spielbefehle aus: h die Hilfe, m die
+   Berge, k den Laden, die Leertaste einen Stuetzbalken. Genau daran scheiterte
+   die Eingabe von "bergmine höfen" und ebenso die des Spielernamens. */
+function imEingabefeld(e){
+  const z = e && e.target;
+  if (!z) return false;
+  return z.tagName === 'INPUT' || z.tagName === 'TEXTAREA' || z.isContentEditable === true;
+}
+
+function tastenDruck(e){
   if (e.repeat) return;
+  if (imEingabefeld(e)) return;      // das Feld bekommt den Anschlag, nicht der Berg
+  if (gesperrt) return;              // hinter dem Vorhang steuert niemand
   const k = KARTE[e.key] || KARTE[e.key.toLowerCase()];
   if (k){ taste[k] = true; e.preventDefault(); return; }
   const z = e.key.toLowerCase();
@@ -787,12 +799,15 @@ addEventListener('keydown', e => {
   else if (z === 'm') zeigeBerge();
   else if (z === 'h') zeigeHilfe();
   else if (e.key === 'Escape') schleier.hidden ? zeigeOptionen() : fensterZu();
-});
+}
+addEventListener('keydown', tastenDruck);
 
-addEventListener('keyup', e => {
+function tastenLos(e){
+  if (imEingabefeld(e)) return;
   const k = KARTE[e.key] || KARTE[e.key.toLowerCase()];
   if (k) taste[k] = false;
-});
+}
+addEventListener('keyup', tastenLos);
 
 addEventListener('blur', () => { for (const k in taste) taste[k] = false; });
 
