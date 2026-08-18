@@ -84,6 +84,60 @@ const BERGE = [
    text:'Der härteste Berg. Unten liegt das Gold in dicken Adern.'},
 ];
 
+/* ---------------------------- Spielerauswahl ----------------------------- */
+
+function zeigeAnmeldung(){
+  const liste = spielerListe();
+  const zuletzt = localStorage.getItem(SPIELER_ZULETZT) || '';
+  const karte = n => {
+    const roh = localStorage.getItem(schluesselFuer(n));
+    let stand = 'neuer Berg';
+    try {
+      const d = JSON.parse(roh);
+      if (d && d.S) stand = zahl(d.S.gold) + ' Goldstücke, tiefster Punkt ' + d.S.tiefstes + ' m';
+    } catch(e){}
+    return `<div class="ware ${n === zuletzt ? 'bergKarte hier' : ''}">
+      <div class="kopf2"><b>${n}</b>${n === zuletzt ? '<span style="color:var(--gold)">zuletzt</span>' : ''}</div>
+      <p>${stand}</p>
+      <button class="kauf" data-tat="anmelden:${n}">Als ${n} spielen</button>
+    </div>`;
+  };
+  fenster('Wer gräbt?', `
+    <p class="hinweis">Jeder Name hat seinen eigenen Berg und seinen eigenen Spielstand.
+    Kein Passwort: das Spiel läuft ohne Server, da liesse sich ohnehin keines prüfen.</p>
+    ${liste.length ? '<div class="gitter">' + liste.map(karte).join('') + '</div>' : ''}
+    <h3 class="abschnitt">Neuer Spieler</h3>
+    <div class="gitter">
+      <div class="ware">
+        <div class="kopf2"><b>Namen eingeben</b></div>
+        <input id="neuerName" maxlength="14" placeholder="zum Beispiel Levi"
+               style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
+                      border:2px solid var(--kante);font:inherit;font-size:15px">
+        <button class="kauf" data-tat="neuerSpieler">Anfangen</button>
+      </div>
+    </div>`);
+  const feld = document.getElementById('neuerName');
+  if (feld) setTimeout(() => feld.focus(), 30);
+}
+
+function anmelden(name){
+  name = (name || '').trim().slice(0, 14);
+  if (!name) return false;
+  const liste = spielerListe();
+  if (!liste.includes(name)){
+    if (liste.length === 0) standUebernehmen(name);
+    liste.push(name);
+    spielerSchreiben(liste);
+  }
+  try { localStorage.setItem(SPIELER_ZULETZT, name); } catch(e){}
+  // Neu laden statt den Zustand von Hand zurueckzusetzen: beim Entladen sichert
+  // beforeunload noch den Stand des bisherigen Spielers, danach faengt die Seite
+  // sauber mit dem gewaehlten an. Ein halb zurueckgesetzter Zustand kann so gar
+  // nicht erst entstehen.
+  location.reload();
+  return true;
+}
+
 /* -------------------------------- Optionen ------------------------------- */
 
 /* Mit Escape erreichbar. Solange ein Fenster offen ist, laeuft die Spielschleife
@@ -132,6 +186,8 @@ function zeigeOptionen(nachfrage){
       <div class="ware"><div class="kopf2"><b>Laden</b></div><p>Ausrüstung kaufen und Erz verkaufen.</p>${knopf('laden', 'Laden öffnen', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Berge</b></div><p>Berg wechseln oder einen neuen öffnen.</p>${knopf('berge', 'Berge zeigen', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Hilfe</b></div><p>Steuerung und Spielregeln.</p>${knopf('hilfe', 'Hilfe zeigen', 'zweit')}</div>
+      <div class="ware"><div class="kopf2"><b>Spieler</b><span style="color:var(--matt)">${spieler || 'ohne Namen'}</span></div>
+        <p>Jeder Name hat einen eigenen Berg.</p>${knopf('wechseln', 'Spieler wechseln', 'zweit')}</div>
     </div>
     ${gefahr}`);
 }
@@ -149,6 +205,14 @@ function tueEs(tat){
   else if (tat === 'hilfe') zeigeHilfe();
   else if (tat === 'neu') zeigeOptionen(true);      // erst nachfragen
   else if (tat === 'neuJa') neuAnfangen();
+  else if (tat === 'wechseln') zeigeAnmeldung();
+  else if (tat.startsWith('anmelden:')) anmelden(tat.slice(9));
+  else if (tat === 'neuerSpieler'){
+    const feld = document.getElementById('neuerName');
+    const name = feld ? feld.value : '';
+    if (!name.trim()) melde('Gib zuerst einen Namen ein', 'schlecht', 'name');
+    else anmelden(name);
+  }
   else if (tat === 'allesVerkaufen'){
     for (const m of MATS) if (S.lager[m] > 0) verkaufe(m);
     zeigeLaden();
@@ -2771,7 +2835,36 @@ function zeigeHilfe(){
 /* ========================================================================== */
 
 // v2: der Berg hat die Weltmasse geaendert, alte Staende passen nicht mehr
-const SCHLUESSEL = 'levisMine.v2';
+/* Spielerauswahl statt Anmeldung. Das Spiel liegt als reine Seite ohne Server,
+   eine Passwortpruefung liefe im Browser und waere mit einem Blick in den
+   Quelltext zu umgehen. Was hier zaehlt, ist etwas anderes: mehrere Kinder an
+   einem Geraet sollen getrennte Spielstaende haben. */
+const SPIELER_LISTE   = 'levisMine.spieler';
+const SPIELER_ZULETZT = 'levisMine.zuletzt';
+const ALT_SCHLUESSEL  = 'levisMine.v2';
+let SCHLUESSEL = ALT_SCHLUESSEL;
+let spieler = '';
+
+const spielerListe = () => {
+  try { return JSON.parse(localStorage.getItem(SPIELER_LISTE)) || []; } catch(e){ return []; }
+};
+const spielerSchreiben = l => {
+  try { localStorage.setItem(SPIELER_LISTE, JSON.stringify(l)); } catch(e){}
+};
+const schluesselFuer = name =>
+  'levisMine.v2.' + name.toLowerCase().replace(/[^a-z0-9äöüß]/g, '') ;
+
+/* Ein vorhandener Stand aus der Zeit ohne Auswahl wird dem ersten Namen
+   zugeschlagen, damit niemand seinen Berg verliert. */
+function standUebernehmen(name){
+  try {
+    const alt = localStorage.getItem(ALT_SCHLUESSEL);
+    if (alt && !localStorage.getItem(schluesselFuer(name))){
+      localStorage.setItem(schluesselFuer(name), alt);
+      localStorage.removeItem(ALT_SCHLUESSEL);
+    }
+  } catch(e){}
+}
 
 function packe(arr){
   let s = '';
@@ -2900,11 +2993,17 @@ document.getElementById('btnTon').onclick = e => {
 passeGroesseAn();
 baueAlleKachelbilder();
 
+const zuletzt = localStorage.getItem(SPIELER_ZULETZT);
+if (zuletzt && spielerListe().includes(zuletzt)){
+  spieler = zuletzt;
+  SCHLUESSEL = schluesselFuer(zuletzt);
+}
 const hatteStand = lade();
 if (!hatteStand) ladeWelt(0);
 document.getElementById('btnTon').textContent = S.ton ? '🔊' : '🔇';
 hud();
-if (!hatteStand) zeigeHilfe();
+if (!spieler) zeigeAnmeldung();          // beim ersten Mal nach dem Namen fragen
+else if (!hatteStand) zeigeHilfe();
 
 requestAnimationFrame(schleife);
 

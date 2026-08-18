@@ -39,7 +39,7 @@ function elStub(id){
     width:0, height:0,
     getContext(){ return ctxStub(); },
     getBoundingClientRect(){ return {width:700, height:400, x:0, y:0}; },
-    addEventListener(){}, removeEventListener(){},
+    addEventListener(){}, removeEventListener(){}, focus(){}, blur(){},
     appendChild(c){ c.parent = this; this.children.push(c); },
     remove(){
       if (!this.parent) return;
@@ -474,6 +474,33 @@ pruefe('Etappenabstaende wachsen mit der Tiefe',
 const belohnung = lies('FUNK.map(f => f.gold)');
 pruefe('Die Belohnung waechst mit',
   belohnung.every((g, i) => i === 0 || g > belohnung[i-1]), belohnung.join(', ') + ' Goldstücke');
+
+/* --------------------------- Spielerauswahl ------------------------------ */
+/* Kein Passwort: das Spiel liegt als reine Seite ohne Server, eine Pruefung
+   liefe im Browser und waere aus dem Quelltext zu umgehen. Was zaehlt, ist
+   dass mehrere Kinder an einem Geraet getrennte Staende haben. */
+lies('zeigeAnmeldung()');
+const anmeldung = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
+pruefe('Die Auswahl fragt nach dem Namen',
+  lies(`document.getElementById('fensterTitel').textContent`) === 'Wer gräbt?');
+pruefe('Und bietet ein Namensfeld', anmeldung().includes('id="neuerName"'));
+pruefe('Sie verspricht kein Passwort', anmeldung().includes('Kein Passwort'));
+
+pruefe('Der Schluessel haengt am Namen',
+  lies('schluesselFuer("Levi")') !== lies('schluesselFuer("Anna")'),
+  lies('schluesselFuer("Levi")') + ' gegen ' + lies('schluesselFuer("Anna")'));
+pruefe('Gross und klein sind derselbe Spieler',
+  lies('schluesselFuer("Levi")') === lies('schluesselFuer("levi")'));
+
+lies('spielerSchreiben(["Levi","Anna"])');
+lies('zeigeAnmeldung()');
+pruefe('Vorhandene Spieler stehen zur Wahl',
+  anmeldung().includes('Als Levi spielen') && anmeldung().includes('Als Anna spielen'));
+lies('tueEs("neuerSpieler")');   // ohne Eingabe darf nichts passieren
+pruefe('Ohne Namen wird niemand angemeldet',
+  lies('localStorage.getItem(SPIELER_ZULETZT)') === null);
+pruefe('Ein leerer Name wird abgelehnt', lies('anmelden("   ")') === false);
+lies('spielerSchreiben([]); fensterZu()');
 
 /* ---------------------------- Keine Sackgasse ---------------------------- */
 /* Ohne Werkzeug, ohne Gold und mit leerem Lager kann Levi nichts mehr brechen
