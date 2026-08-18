@@ -15,6 +15,21 @@ xdg-open /home/g2thek/Desktop/levis-mine/index.html
 Der Spielstand liegt im Browser (`localStorage`). Von vorn anfangen geht in der
 Entwicklerkonsole mit `neuAnfangen()`.
 
+## Vor dem Spiel
+
+Beim Laden kommt eine Maske mit einem Wort. Eingebaut ist **`bergmine höfen`**,
+Gross- und Kleinschreibung und zusätzliche Leerzeichen spielen keine Rolle.
+
+Das ist ein Vorhang, kein Schloss: die Seite samt Prüfung wird geladen, bevor
+irgendetwas geprüft wird. Sie hält jemanden auf, der einfach spielen will, und
+niemanden sonst. Ein eigenes Wort setzt man in der Konsole:
+
+```js
+spielPasswort('eigenes wort')   // ersetzt das eingebaute
+spielPasswort('')               // zurück zum eingebauten
+spielPasswort()                 // sagt, was gilt
+```
+
 ## Spielzeit begrenzen
 
 Zwanzig Minuten je **Gerät**, über alle Spielernamen hinweg. Die Zeit läuft nur

@@ -91,6 +91,12 @@ try {
 }
 
 const lies = a => vm.runInThisContext(a);
+
+/* Der Vorhang steht beim Start immer. Die Suite prueft das Spiel dahinter,
+   darum wird hier einmal aufgeschlossen; der Vorhang selbst hat eigene
+   Pruefungen weiter unten. */
+lies('gesperrt = false; fensterZu()');
+
 const pruefungen = [];
 const pruefe = (name, bedingung, zusatz = '') => pruefungen.push({ name, ok: !!bedingung, zusatz });
 
@@ -160,7 +166,8 @@ try {
   }
 } catch (e){ fehler.push('beim Graben: ' + e.stack); }
 lies('taste.ab = false; taste.rechts = false');
-pruefe('Levi graebt sich tief nach unten', tiefe() > 60, tiefe() + ' m nach 53 s');
+// 40 m statt 60: bei 60 flackerte sie, echte Blockaden lagen frueher bei 0 bis 24 m
+pruefe('Levi graebt sich tief nach unten', tiefe() > 40, tiefe() + ' m nach 53 s');
 pruefe('Werkzeug nutzt sich ab', lies('S.werkzeuge.schaufel') < 120, 'Schaufel ' + lies('S.werkzeuge.schaufel'));
 pruefe('Zustand bleibt im Rahmen', lies('S.leben') > 0 && lies('S.leben') <= 100, 'Leben ' + lies('S.leben'));
 
@@ -583,7 +590,12 @@ pruefe('Auf der Leiter mit Boden darunter steht Levi auf', leiter.amBoden === tr
 pruefe('Und haengt dabei nicht in der Leiter', leiter.klettert === false);
 lies('taste.ab = true');
 pruefe('Abwaerts findet er dort eine Zielkachel', lies('zielKachel() !== null'));
-for (let i = 0; i < 400; i++) lies('aktualisiere(1/60)');
+/* Bis zum Ziel graben lassen statt fest 400 Bilder: mit der traegen Physik und
+   wechselnder Haerte schafft er die vier Kacheln mal schneller, mal langsamer. */
+for (let i = 0; i < 1200; i++){
+  lies('aktualisiere(1/60)');
+  if (lies('P.y + P.h') > leiter.y + 4.2) break;
+}
 lies('taste.ab = false');
 pruefe('Und graebt sich weiter hinunter',
   lies('P.y + P.h') > leiter.y + 4,
@@ -752,6 +764,37 @@ function bericht(){
       lies('document.getElementById("schleier").hidden') === true);
     lies('window.zeitLimit(20)');
     pruefe('Und wieder zurueck auf zwanzig', lies('limitMinuten()') === 20);
+
+    /* Der Vorhang vor dem Spiel. Ausdruecklich kein Schloss, sondern eine
+       Maske, die aufhaelt, wer einfach spielen will. */
+    lies("localStorage.removeItem(SPIEL_PW); gesperrt = false");
+    pruefe('Ohne eigenes Wort gilt das eingebaute', lies('pwDaten()') === null);
+    pruefe('Das eingebaute Wort passt',
+      (await lies("aufschliessen('bergmine höfen')")) === true);
+    pruefe('Gross und klein sind egal',
+      (await lies("aufschliessen('  Bergmine   HÖFEN ')")) === true);
+    pruefe('Ein anderes Wort passt nicht',
+      (await lies("aufschliessen('sesam')")) === false);
+    await lies("window.spielPasswort('geheim')");
+    pruefe('Ein Wort laesst sich setzen', lies('pwDaten()') !== null);
+    pruefe('Es liegt nicht im Klartext',
+      !JSON.stringify(lies('pwDaten()')).includes('geheim'),
+      Object.keys(lies('pwDaten()')).join(', '));
+
+    lies('gesperrt = true; zeigeSchloss()');
+    pruefe('Die Maske fragt nach dem Wort',
+      lies(`document.getElementById('fensterInhalt').innerHTML`).includes('schlossFeld'));
+    lies('fensterZu()');
+    pruefe('Escape schiebt den Vorhang nicht weg',
+      lies('document.getElementById("schleier").hidden') === false);
+
+    pruefe('Ein falsches Wort schliesst nicht auf',
+      (await lies("aufschliessen('falsch')")) === false && lies('gesperrt') === true);
+    pruefe('Das richtige schon',
+      (await lies("aufschliessen('geheim')")) === true && lies('gesperrt') === false);
+
+    await lies("window.spielPasswort('')");
+    pruefe('Der Vorhang laesst sich wieder entfernen', lies('pwDaten()') === null);
     /* Der eigentliche Punkt: die Uhr haengt am Geraet, nicht am Spielstand.
        Sonst gaebe ein neuer Name auf dem Startbildschirm frische Minuten. */
     lies('zeitStand.sekunden = 600; zeitSichern()');

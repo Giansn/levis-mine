@@ -84,6 +84,78 @@ const BERGE = [
    text:'Der härteste Berg. Unten liegt das Gold in dicken Adern.'},
 ];
 
+/* ------------------------------- Vorhang --------------------------------- */
+/* Eine Maske vor dem Spiel. Sie ist ein Vorhang, kein Schloss: die Seite samt
+   Pruefung wird geladen, bevor irgendetwas geprueft wird. Sie haelt jemanden
+   auf, der einfach spielen will, und niemanden sonst. Gesetzt wird sie ueber
+   spielPasswort() in der Entwicklerkonsole, ohne Passwort erscheint sie nicht. */
+const SPIEL_PW = 'levisMine.pw';
+const STANDARD_WORT = 'bergmine höfen';   // gilt, solange keines gesetzt wurde
+let gesperrt = false;
+let ersterStart = false;   // beim ersten Besuch nach dem Vorhang die Hilfe zeigen
+
+/* Gross und klein, fuehrende Leerzeichen und doppelte Abstaende sollen nicht
+   ueber Erfolg entscheiden, ein Kind tippt das sonst dreimal falsch. */
+const wortForm = w => (w || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+const pwDaten = () => {
+  try { return JSON.parse(localStorage.getItem(SPIEL_PW)) || null; } catch(e){ return null; }
+};
+
+/* Auch fuer einen Vorhang gehoert das Wort nicht im Klartext in den Speicher.
+   In einem sicheren Kontext rechnet der Browser, aus einer lokalen Datei heraus
+   fehlt crypto.subtle, dann bleibt eine einfache Streuung. */
+async function streuwert(text, salz){
+  const roh = salz + '\u0000' + text;
+  if (globalThis.crypto && crypto.subtle){
+    const puffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(roh));
+    return [...new Uint8Array(puffer)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  let h = 2166136261;
+  for (let i = 0; i < roh.length; i++){ h ^= roh.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return 'einfach:' + (h >>> 0).toString(16);
+}
+
+function zeigeSchloss(fehlversuch){
+  fenster('Levis Mine', `
+    <p class="hinweis">Gib das Wort ein, dann geht es los.</p>
+    ${fehlversuch ? '<div class="gefahr">Das war nicht das richtige Wort.</div>' : ''}
+    <div class="gitter">
+      <div class="ware">
+        <div class="kopf2"><b>Wort</b></div>
+        <input id="schlossFeld" type="password" maxlength="40" placeholder="Wort"
+               style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
+                      border:2px solid var(--kante);font:inherit;font-size:15px">
+        <button class="kauf" data-tat="aufschliessen">Aufschliessen</button>
+      </div>
+    </div>`);
+  const feld = document.getElementById('schlossFeld');
+  if (feld){
+    setTimeout(() => feld.focus(), 30);
+    feld.addEventListener('keydown', e => {
+      if (e.key === 'Enter') tueEs('aufschliessen');
+    });
+  }
+}
+
+function aufschliessen(wort){
+  const d = pwDaten();
+  // Ohne eigenes Wort gilt das eingebaute. Der Vergleich laeuft dann direkt,
+  // damit er aus einer lokalen Datei genauso funktioniert wie im Netz.
+  const geprueft = d
+    ? streuwert(wort || '', d.salz).then(h => h === d.hash)
+    : Promise.resolve(wortForm(wort) === wortForm(STANDARD_WORT));
+  return geprueft.then(passt => {
+    if (!passt){ zeigeSchloss(true); return false; }
+    gesperrt = false;
+    fensterZu();
+    hud();
+    if (!spieler) zeigeAnmeldung();        // dann erst nach dem Namen fragen
+    else if (ersterStart) zeigeHilfe();
+    return true;
+  });
+}
+
 /* -------------------------------- Spielzeit ------------------------------ */
 /* Zwanzig Minuten je Spieler und Tag. Kein Elternbereich im Spiel: was Levi
    sehen kann, kann Levi auch bedienen. Zurueckgesetzt wird von aussen, ueber
@@ -273,6 +345,10 @@ function tueEs(tat){
   else if (tat === 'neu') zeigeOptionen(true);      // erst nachfragen
   else if (tat === 'neuJa') neuAnfangen();
   else if (tat === 'wechseln') zeigeAnmeldung();
+  else if (tat === 'aufschliessen'){
+    const feld = document.getElementById('schlossFeld');
+    aufschliessen(feld ? feld.value : '');
+  }
   else if (tat.startsWith('anmelden:')) anmelden(tat.slice(9));
   else if (tat === 'neuerSpieler'){
     const feld = document.getElementById('neuerName');
@@ -2667,7 +2743,7 @@ function fenster(titel, html){
   for (const k in taste) taste[k] = false;
 }
 
-function fensterZu(){ schleier.hidden = true; }
+function fensterZu(){ if (gesperrt) return; schleier.hidden = true; }
 
 /* --------------------------------- Laden --------------------------------- */
 
@@ -3053,7 +3129,13 @@ function schleife(t){
   const dt = Math.min(0.045, letzte ? (t - letzte)/1000 : 0.016);
   letzte = t;
   if (schleier.hidden) aktualisiere(dt);
-  zeichne();
+  if (gesperrt){
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#0d0b12';
+    ctx.fillRect(0, 0, W, H);            // hinter dem Vorhang bleibt es dunkel
+  } else {
+    zeichne();
+  }
   requestAnimationFrame(schleife);
 }
 
@@ -3083,8 +3165,10 @@ const hatteStand = lade();
 if (!hatteStand) ladeWelt(0);
 document.getElementById('btnTon').textContent = S.ton ? '🔊' : '🔇';
 hud();
-if (!spieler) zeigeAnmeldung();          // beim ersten Mal nach dem Namen fragen
-else if (!hatteStand) zeigeHilfe();
+ersterStart = !hatteStand;
+gesperrt = true;
+zeigeSchloss();      // Der Vorhang steht immer. Was danach kommt, also
+                     // Spielerauswahl oder Hilfe, entscheidet aufschliessen().
 
 requestAnimationFrame(schleife);
 
@@ -3102,6 +3186,23 @@ window.zeitZuruecksetzen = function(){
   melde('Die Spielzeit ist zurückgesetzt', 'gold');
   return 'Spielzeit zurückgesetzt, ' + limitMinuten() + ' Minuten stehen wieder offen';
 };
+/* spielPasswort('wort')  setzt den Vorhang
+   spielPasswort('')      nimmt ihn weg
+   spielPasswort()        sagt, ob einer steht                              */
+window.spielPasswort = function(wort){
+  if (wort === undefined)
+    return pwDaten() ? 'Ein eigenes Wort ist gesetzt' : 'Es gilt das eingebaute Wort';
+  if (!wort){
+    try { localStorage.removeItem(SPIEL_PW); } catch(e){}
+    return 'Eigenes Wort entfernt, es gilt wieder das eingebaute';
+  }
+  const salz = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return streuwert(wort, salz).then(hash => {
+    try { localStorage.setItem(SPIEL_PW, JSON.stringify({salz, hash})); } catch(e){}
+    return 'Wort gesetzt. Beim nächsten Laden kommt die Maske.';
+  });
+};
+
 window.zeitLimit = function(minuten){
   if (minuten === undefined) return limitMinuten() + ' Minuten bis zur Freigabe';
   const n = Math.max(0, Math.min(600, parseInt(minuten, 10) || 0));
