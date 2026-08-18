@@ -673,20 +673,72 @@ pruefe('Eine Diagonale zaehlt nur bei zwei festen Orthogonalen',
 pruefe('Kachelvarianten gebaut', lies('kachelBild[ERDE].length') === lies('VARIANTEN'),
   lies('VARIANTEN') + ' Varianten');
 
+/* --------------------------- Zeit und Elternsperre ------------------------ */
+lies('localStorage.removeItem(ELTERN)');
+pruefe('Standardlimit sind 20 Minuten', lies('limitMinuten()') === 20);
+pruefe('Ohne Passwort ist keine Sperre gesetzt', lies('sperreGesetzt()') === false);
+
+lies("S.zeitTag = heute(); S.zeitHeute = 0; S.gewarnt = 0; fensterZu()");
+for (let i = 0; i < 120; i++) lies('aktualisiere(1/60)');
+pruefe('Gespielte Zeit wird gezaehlt', lies('S.zeitHeute') > 1.5,
+  lies('S.zeitHeute').toFixed(1) + ' s nach 2 s Spiel');
+lies('hud()');
+pruefe('Die Kopfleiste zeigt die Restzeit',
+  /^\d+:\d\d$/.test(lies(`document.getElementById('zeitRest').textContent`)),
+  lies(`document.getElementById('zeitRest').textContent`));
+
+/* Kurz vor Schluss muss gewarnt werden, danach ist zu */
+lies('S.zeitHeute = limitMinuten()*60 - 1; S.gewarnt = 0; fensterZu()');
+for (let i = 0; i < 180; i++) lies('aktualisiere(1/60)');   // 3 s, also ueber die Null hinaus
+pruefe('Vor dem Ende wird gewarnt', lies('S.gewarnt') > 0, 'Marke ' + lies('S.gewarnt'));
+pruefe('Bei null ist Schluss', lies('document.getElementById("schleier").hidden') === false);
+pruefe('Und das Fenster sagt es',
+  lies(`document.getElementById('fensterTitel').textContent`) === 'Für heute ist Schluss');
+lies('fensterZu()');
+
+/* Ein neuer Tag setzt die Uhr zurueck */
+lies("S.zeitTag = '2000-01-01'; S.zeitHeute = 9999; fensterZu()");
+lies('aktualisiere(1/60)');
+pruefe('Ein neuer Tag beginnt bei null', lies('S.zeitHeute') < 1,
+  lies('S.zeitHeute').toFixed(2) + ' s');
+
 /* ------------------------------- Bericht --------------------------------- */
-console.log('');
-let schlecht = 0;
-for (const p of pruefungen){
-  if (!p.ok) schlecht++;
-  console.log((p.ok ? '  ok   ' : '  FEHL ') + p.name + (p.zusatz ? '   [' + p.zusatz + ']' : ''));
-}
-console.log('');
-if (fehler.length){
-  console.log('Ausnahmen:');
-  for (const f of fehler) console.log('  ' + f.split('\n').slice(0,3).join('\n  '));
+function bericht(){
   console.log('');
+  let schlecht = 0;
+  for (const p of pruefungen){
+    if (!p.ok) schlecht++;
+    console.log((p.ok ? '  ok   ' : '  FEHL ') + p.name + (p.zusatz ? '   [' + p.zusatz + ']' : ''));
+  }
+  console.log('');
+  if (fehler.length){
+    console.log('Ausnahmen:');
+    for (const f of fehler) console.log('  ' + f.split('\n').slice(0,3).join('\n  '));
+    console.log('');
+  }
+  console.log(`${pruefungen.length - schlecht} von ${pruefungen.length} Pruefungen ok, ${fehler.length} Ausnahmen`);
+  process.exitCode = (schlecht || fehler.length) ? 1 : 0;
 }
-console.log(`${pruefungen.length - schlecht} von ${pruefungen.length} Pruefungen ok, ${fehler.length} Ausnahmen`);
-// exitCode statt exit(): in eine Datei schreibt Node asynchron, und exit()
-// wuerde die noch nicht geschriebenen Zeilen abschneiden.
-process.exitCode = (schlecht || fehler.length) ? 1 : 0;
+
+/* Das Passwort wird asynchron geprueft, darum wartet der Bericht darauf. */
+(async () => {
+  try {
+    lies('localStorage.removeItem(ELTERN)');
+    const gesetzt = await lies("passwortSetzen('geheim')");
+    pruefe('Passwort laesst sich setzen', gesetzt === true);
+    pruefe('Danach ist die Sperre gesetzt', lies('sperreGesetzt()') === true);
+    pruefe('Es liegt nicht im Klartext',
+      !JSON.stringify(lies('elternDaten()')).includes('geheim'),
+      Object.keys(lies('elternDaten()')).join(', '));
+    pruefe('Ein Salz ist dabei', !!lies('elternDaten().salz'));
+    pruefe('Das richtige Passwort passt', (await lies("passwortStimmt('geheim')")) === true);
+    pruefe('Ein falsches nicht', (await lies("passwortStimmt('falsch')")) === false);
+    pruefe('Ein leeres auch nicht', (await lies("passwortStimmt('')")) === false);
+    pruefe('Zu kurze Passwoerter werden abgelehnt',
+      (await lies("passwortSetzen('ab')")) === false);
+    lies('localStorage.removeItem(ELTERN)');
+    pruefe('Ohne gesetzte Sperre passt kein Passwort',
+      (await lies("passwortStimmt('geheim')")) === false);
+  } catch (e){ fehler.push('bei der Elternsperre: ' + e.stack); }
+  bericht();
+})();
