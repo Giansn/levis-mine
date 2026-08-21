@@ -377,8 +377,8 @@ const LADEN = [
   {id:'lampe', art:'lampe', stufe:1, name:'Lampe', text:''},
   {id:'dynamit', art:'stapel', anzahl:1, name:'Dynamit', stufe:1,
    text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:8}},
-  {id:'balken', art:'stapel', anzahl:20, name:'Leitern und Stützbalken ×20', stufe:1,
-   text:'Deine Leiter nach oben: an gesetzten Balken kletterst du mit ▲ und ▼. '
+  {id:'balken', art:'stapel', anzahl:20, name:'Stützbalken ×20', stufe:1,
+   text:'An gesetzten Balken kletterst du mit ▲ und ▼, und du kannst oben darauf stehen. '
       + 'Zugleich stützen sie den Stollen gegen Einsturz. Setzen mit der Leertaste.',
    preis:{gold:12}},
   {id:'seilwinde', art:'stapel', anzahl:2, name:'Seilwinde ×2', stufe:1,
@@ -792,7 +792,9 @@ function tastenDruck(e){
   const k = KARTE[e.key] || KARTE[e.key.toLowerCase()];
   if (k){ taste[k] = true; e.preventDefault(); return; }
   const z = e.key.toLowerCase();
-  if (z === ' ' || e.key === ' '){ setzeBalken(); e.preventDefault(); return; }
+  // Leertaste und B tun dasselbe. Das Zeichen ␣ in der Leiste liest kein Kind,
+  // darum steht dort jetzt B - die Leertaste bleibt fuer alle, die sie kennen.
+  if (z === ' ' || e.key === ' ' || z === 'b'){ setzeBalken(); e.preventDefault(); return; }
   if (z === 'r') legeSchiene();
   else if (z === 'f') zuendeDynamit();
   else if (z === 'v') wechsleFahrzeug();
@@ -862,10 +864,23 @@ function loeseX(){
   }
 }
 
-function loeseY(){
+/* Balken tragen von oben wie ein Absatz, von unten steigt man hindurch. Damit
+   ist ein gesetzter Balken zugleich Leiter UND Stufe, und Levi kommt ohne
+   Seilwinde wieder auf eine hoehere Ebene. Vier Bedingungen, alle noetig:
+   Levi muss fallen, darf nicht klettern, darf nicht ▼ druecken - und seine
+   Fuesse muessen vor der Bewegung ueber der Balkenoberkante gewesen sein,
+   sonst schnappt der Balken zu, waehrend er von unten durchsteigt. */
+function balkenTraegt(x, y, fussVorher){
+  if (P.klettert || taste.ab) return false;
+  if (y < 0 || y >= HOEHE || x < 0 || x >= BREITE) return false;
+  if (!(bau[idx(x,y)] & 1) || fest(x,y)) return false;
+  return fussVorher <= y + 0.02;
+}
+
+function loeseY(fussVorher){
   const r = kachelBereich();
   for (let x = r.x0; x <= r.x1; x++){
-    if (P.vy > 0 && fest(x, r.y1)){
+    if (P.vy > 0 && (fest(x, r.y1) || balkenTraegt(x, r.y1, fussVorher))){
       if (P.vy > STURZ_AB) sturzSchaden(P.vy);
       P.y = r.y1 - P.h; P.vy = 0; P.amBoden = true; return;
     }
@@ -986,7 +1001,8 @@ function bewege(dt){
   P.amBoden = false;
   P.x += P.vx*dt; loeseX();
   const fallVor = P.vy;                 // loeseY setzt vy auf null, vorher merken
-  P.y += P.vy*dt; loeseY();
+  const fussVorher = P.y + P.h;         // Fuesse vor der Bewegung, fuer die Balken
+  P.y += P.vy*dt; loeseY(fussVorher);
 
   /* Aufsetzen. Der Schwung geht in die Knie und nicht in die Beine, darum
      verliert Levi beim harten Landen einen Teil seines Tempos. Unterhalb der
@@ -1170,7 +1186,18 @@ function setzeBalken(){
   const [x, y] = meinFeld();
   if (fest(x,y)) return;
   const i = idx(x,y);
-  if (bau[i] & 1){ melde('Hier steht schon ein Balken', 'schlecht', 'balken'); return; }
+  /* Steht hier schon einer, nimmt Levi ihn wieder mit. Dieselbe Taste, kein
+     zweiter Handgriff zu lernen - und der Vorrat ist damit etwas, das man
+     umsetzt, statt etwas, das versickert. */
+  if (bau[i] & 1){
+    bau[i] &= ~1;
+    balkenBuchen(x, y, -1);
+    S.balken++;
+    klang('holz');
+    melde('Stützbalken mitgenommen, ' + S.balken + ' im Rucksack', 'gut', 'balken');
+    hud(); speichere();
+    return;
+  }
   if (S.balken <= 0){ melde('Keine Stützbalken mehr', 'schlecht', 'balken'); return; }
   S.balken--;
   bau[i] |= 1;
@@ -2821,7 +2848,7 @@ function hud(){
 
   document.getElementById('vorrat').innerHTML = [
     ['Dynamit', S.dynamit, 'F'],
-    ['Leitern', S.balken, '␣'],
+    ['Stützbalken', S.balken, 'B'],
     ['Schienen', S.schienen, 'R'],
     ['Seilwinde', S.seilwinde, 'L'],
     ['Lampe', (S.lampe+1) + '/' + LAMPEN.length, 'K'],
