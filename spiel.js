@@ -3176,7 +3176,11 @@ function packe(arr){
   return btoa(s);
 }
 function entpacke(text, len, Typ){
-  const bin = atob(text);
+  // Fehlendes Feld ist kein Fehler, sondern ein aelterer Stand: atob(undefined)
+  // wirft, und die Ausnahme hat beim Laden das ganze Spiel angehalten.
+  if (typeof text !== 'string' || !text) return null;
+  let bin;
+  try { bin = atob(text); } catch(e){ return null; }   // beschaedigter Stand
   if (bin.length !== len) return null;      // Stand aus einer anderen Weltgroesse
   const a = new Typ(len);
   for (let i = 0; i < len; i++) a[i] = bin.charCodeAt(i);
