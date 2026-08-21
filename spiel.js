@@ -428,8 +428,22 @@ const MAX_FAHRT  = 8.5;   // Seitentempo des Fahrzeugs
 const FAHR_BREMS = 26;    // Fahrzeug bremst am Boden
 const FAHR_ROLL  = 11;    // in der Luft rollt es lange aus
 const LAST       = 0.28;  // So viel Beschleunigung nimmt eine volle Ladung weg
-const STURZ_AB   = 18;    // ab dieser Fallgeschwindigkeit tut es weh
-const AUFSETZ    = 13.5;  // ab hier setzt es hart auf, noch ohne Schaden
+const STURZ_AB   = 22.0;  // ab dieser Fallgeschwindigkeit tut es weh
+                          // Mit der schwereren Fallschwerkraft kommt Levi bei gleicher
+                          // Hoehe schneller unten an - genau um Wurzel(FALL_FAKT).
+                          // Zieht man die Schwelle nicht mit, bestraft die Vergebung
+                          // jeden Absprung haerter als vorher. Gemessen: Schaden ab
+                          // zwei statt ab vier Kacheln.
+const AUFSETZ    = 16.5;  // ab hier setzt es hart auf, noch ohne Schaden
+
+/* Vergebung. Alle vier Werte in Sekunden, nicht in Bildern: derselbe Zaehler
+   liefert je nach Reihenfolge im Update vier oder fuenf nutzbare Bilder, und
+   dann ist die Konstante keine Vorgabe mehr. In Sekunden ist sie eindeutig und
+   bleibt bei jeder Bildrate gleich lang. */
+const KOJOTE     = 0.10;  // Sprung geht noch kurz nachdem die Kante weg ist
+const PUFFER     = 0.10;  // Sprung kurz vor der Landung gedrueckt zaehlt noch
+const FALL_FAKT  = 1.5;   // schwerer beim Fallen: der Sprung wirkt entschlossen
+const KURZ_FAKT  = 1.7;   // Taste losgelassen: den Aufstieg kappen
 
 /* ========================================================================== */
 /*                                 Zustand                                    */
@@ -452,6 +466,7 @@ const P = {
   x:BASIS_X, y:FUSS-1, vx:0, vy:0, b:0.70, h:0.92,
   amBoden:false, klettert:false, blick:1,
   zx:-1, zy:-1, fortschritt:0, grabt:false, schwung:0,
+  kojote:0, puffer:0, haeltSprung:false,
 };
 
 let boden, bau, stuetze, gesehen; // Kachelfelder des aktuellen Bergs
@@ -603,6 +618,32 @@ function streueAdern(bo, berg){
   }
 }
 
+/* Zusaetzliche Adern dicht unter dem Bergfuss. streueAdern verteilt ueber alle
+   322 Zeilen gleichmaessig, im Startbereich landet darum fast nichts: gemessen
+   vergingen im Median 14 abgebaute Kacheln bis zum ersten Erz, in 25 von 40
+   Welten ueber zehn. Fuer ein ungeduldiges Kind ist das der leere Anfang.
+   Zielvorgabe fuer diesen Wert, vor dem Durchfahren festgelegt: Schaufel und
+   Pickel zusammen kosten 20 Goldstuecke, und die sollen im Median binnen zwoelf
+   abgebauter Kacheln drinliegen. */
+const START_ADERN = 26;      // durchgefahren, siehe Kommentar oben
+
+function streueStartAdern(bo, berg){
+  for (let a = 0; a < START_ADERN; a++){
+    let x = 1 + Math.floor(Math.random()*(BREITE-2));
+    let y = FUSS + 1 + Math.floor(Math.random()*17);
+    const kachel = ERZ_STUFEN[erzStufe(y - FUSS, berg.reich)];
+    const gr = 3 + Math.floor(Math.random()*4);
+    for (let g = 0; g < gr; g++){
+      const i = y*BREITE + x;
+      if (bo[i] !== FELS && bo[i] !== LEER) bo[i] = kachel;
+      if (Math.random() < 0.7) x += Math.random()<0.5 ? -1 : 1;
+      if (Math.random() < 0.6) y += Math.random()<0.5 ? -1 : 1;
+      x = Math.max(1, Math.min(BREITE-2, x));
+      y = Math.max(FUSS, Math.min(FUSS+19, y));
+    }
+  }
+}
+
 function streueGas(bo){
   for (let n = 0; n < 64; n++){
     const x = 1 + Math.floor(Math.random()*(BREITE-2));
@@ -639,6 +680,7 @@ function neueWelt(nr){
   }
   grabeHoehlen(bo);
   streueAdern(bo, berg);
+  streueStartAdern(bo, berg);
   streueGas(bo);
   streueFundstuecke(bo);
   // Vor dem Haus ein sauberes Stueck Erde, damit der Start ruhig ist
@@ -940,6 +982,17 @@ function bewege(dt){
   if (links) P.blick = -1;
   if (rechts) P.blick = 1;
 
+  /* Die Flanke muss vor allem anderen gelesen werden. Der Puffer darf nur beim
+     Druck gefuellt werden, nicht solange die Taste liegt - sonst huepft Levi
+     bei gehaltener Taste dauernd weiter, und der Schraegabbau kaeme nie dran. */
+  const aufFlanke = auf && !P.aufVorher;
+  P.aufVorher = auf;
+  if (P.amBoden && !P.klettert) P.kojote = KOJOTE;
+  else P.kojote = Math.max(0, P.kojote - dt);
+  if (aufFlanke) P.puffer = PUFFER;
+  else P.puffer = Math.max(0, P.puffer - dt);
+  if (!auf) P.haeltSprung = false;
+
   const richtung = (rechts ? 1 : 0) - (links ? 1 : 0);
   // Die Ladung hängt an allem, was beschleunigt. Voll beladen fällt das
   // Anfahren merklich schwerer, das Höchsttempo bleibt aber gleich.
@@ -995,12 +1048,25 @@ function bewege(dt){
     // sonst springt er davor endlos und die Treppe entsteht nie. Ueberall
     // sonst springt er, auch nach vorn. Das Bremsen beim Schraegabbau ist
     // ersatzlos weg; DAS war der Fehler, nicht diese Sperre.
-    if (auf && kannSpringen() && diagonalZiel() === null){
-      P.vy = -SPRUNG; P.amBoden = false; klang('sprung');
+    /* Ein gepufferter Druck trifft eine kuerzlich verlassene Kante. Beide
+       Uhren werden verbraucht - laesst man eine stehen, ist die Haelfte der
+       Bedingung noch scharf und Levi bekommt einen Gratissprung dazu. */
+    if (P.puffer > 0 && kannSpringen() && diagonalZiel() === null){
+      P.vy = -SPRUNG; P.amBoden = false; P.haeltSprung = true;
+      P.puffer = 0; P.kojote = 0;
+      klang('sprung');
     }
   }
 
-  if (!P.klettert) P.vy = Math.min(MAX_FALL, P.vy + G*dt);
+  /* Drei Schwerkraftbereiche. Der Fallzweig greift erst, wenn Levi schon
+     sinkt, kostet also keine Scheitelhoehe - er kuerzt nur den Abstieg. Der
+     Kappzweig greift nur beim Steigen mit losgelassener Taste. */
+  if (!P.klettert){
+    let g = G;
+    if (P.vy > 0) g *= FALL_FAKT;
+    else if (P.vy < 0 && !P.haeltSprung) g *= KURZ_FAKT;
+    P.vy = Math.min(MAX_FALL, P.vy + g*dt);
+  }
 
   P.amBoden = false;
   P.x += P.vx*dt; loeseX();
@@ -1044,7 +1110,9 @@ function bestesWerkzeug(haerte){
 /* Kann Levi hier und jetzt springen? Eine einzige Stelle, damit Sprung und
    Schraegabbau sich nicht widersprechen koennen. */
 function kannSpringen(){
-  return P.amBoden && !P.klettert
+  // P.kojote statt P.amBoden: am Boden ist er ohnehin gesetzt, und kurz danach
+  // noch - genau das ist die Kojotenzeit.
+  return P.kojote > 0 && !P.klettert
       && !fest(Math.floor(P.x + P.b/2), Math.floor(P.y) - 1);
 }
 
@@ -1073,6 +1141,13 @@ function zielKachel(){
   // nimmt die Stufe mit - beides war vorher gegeneinander verriegelt.
   const dz = diagonalZiel();
   if (dz) return [dz[0], dz[1], 0.7];
+
+  /* Hoch UND zur Seite heisst Treppe, nicht "alles in dieser Richtung". Ohne
+     diese Sperre nimmt Levi nach der Stufe gleich die Wand darunter mit, und
+     statt einer Treppe entsteht ein waagrechter Gang - die Stufe, auf die er
+     steigen wollte, ist dann weg. Zu Fuss, denn im Fahrzeug ist Hoch der Schub
+     und kein Grabbefehl. */
+  if (!S.imFahrzeug && taste.auf && !P.klettert && (taste.links || taste.rechts)) return null;
 
   // Kein !P.klettert mehr: an einer Leiter mit festem Boden darunter war das
   // Graben gesperrt, und weil zugleich die Schwerkraft aus ist, sass Levi fest.
