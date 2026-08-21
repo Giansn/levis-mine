@@ -41,11 +41,13 @@ const GESTEIN = {
 /* Der Wert steigt steiler als die Masse. Dadurch wird der Frachtraum mit jedem
    Meter Tiefe wertvoller und der Aufstieg zum Abliefern lohnt sich, statt zu nerven. */
 const MATERIAL = {
-  erz:    {name:'Eisenerz', wert:2,  masse:1, farbe:'#a8977c'},
-  kupfer: {name:'Kupfer',   wert:4,  masse:1, farbe:'#d9803a'},
-  bronze: {name:'Bronze',   wert:5,  masse:1, farbe:'#c99b45'},
-  silber: {name:'Silber',   wert:14, masse:2, farbe:'#e2eaf2'},
-  gold:   {name:'Gold',     wert:40, masse:3, farbe:'#ffc63d'},
+  // Werte rund zweieinhalbfach angehoben. Levi fand den Ertrag je Stueck zu
+  // klein, und bei zwanzig Minuten Spielzeit war die Kurve zu flach.
+  erz:    {name:'Eisenerz', wert:5,   masse:1, farbe:'#a8977c'},
+  kupfer: {name:'Kupfer',   wert:10,  masse:1, farbe:'#d9803a'},
+  bronze: {name:'Bronze',   wert:12,  masse:1, farbe:'#c99b45'},
+  silber: {name:'Silber',   wert:35,  masse:2, farbe:'#e2eaf2'},
+  gold:   {name:'Gold',     wert:100, masse:3, farbe:'#ffc63d'},
 };
 const MATS = ['erz','kupfer','bronze','silber','gold'];
 
@@ -459,6 +461,7 @@ const welten = {};                // bergNr -> {boden, bau, stuetze}
 let W = 0, H = 0;
 const kamera = {x:0, y:0};
 let beben = 0;
+let aderArt = null, aderZahl = 0;   // laufende Ader fuer den Abbaubonus
 const funken = [];
 const broeckelt = [];
 let arbeiterUhr = 0, einsturzUhr = 0, speicherUhr = 0, hudUhr = 0;
@@ -956,10 +959,9 @@ function bewege(dt){
       P.vy = 0;                                   // an der Leiter hält er sich fest
     }
     // Beim Diagonalgraben bleibt Levi stehen, sonst laeuft er vom Ziel weg
-    const graebtSchraeg = diagonalZiel() !== null;
-    if (graebtSchraeg){
-      P.vx = ziehe(P.vx, 0, BREMS*2, dt);
-    } else if (richtung){
+    // Der Schraegabbau bremst nicht mehr. Eine Verzoegerung, die der Spieler
+    // nicht verlangt hat, ist selbstgebaute Traegheit.
+    if (richtung){
       // Am Boden trägt der Schuh, in der Luft nur der Schwung. Wer gegen die
       // eigene Fahrt drückt, stemmt sich dagegen und wendet darum schneller,
       // als er anfährt. Ohne das wirkt Masse nicht schwer, sondern unwillig.
@@ -970,8 +972,11 @@ function bewege(dt){
       P.vx = ziehe(P.vx, 0, P.amBoden ? BREMS : LUFT_BREMS, dt);
     }
     // Nicht springen, solange die Schraege abgebaut wird
-    if (auf && P.amBoden && !P.klettert && !graebtSchraeg
-        && !fest(Math.floor(P.x+P.b/2), Math.floor(P.y)-1)){
+    // Liegt schraeg ueber Levi Fels, nimmt er die Stufe weg statt zu huepfen -
+    // sonst springt er davor endlos und die Treppe entsteht nie. Ueberall
+    // sonst springt er, auch nach vorn. Das Bremsen beim Schraegabbau ist
+    // ersatzlos weg; DAS war der Fehler, nicht diese Sperre.
+    if (auf && kannSpringen() && diagonalZiel() === null){
       P.vy = -SPRUNG; P.amBoden = false; klang('sprung');
     }
   }
@@ -1016,6 +1021,13 @@ function bestesWerkzeug(haerte){
 
 /* Die Kachel schraeg ueber Levi auf der Seite, in die er drueckt.
    Gibt null zurueck, wenn dort nichts zu holen ist. */
+/* Kann Levi hier und jetzt springen? Eine einzige Stelle, damit Sprung und
+   Schraegabbau sich nicht widersprechen koennen. */
+function kannSpringen(){
+  return P.amBoden && !P.klettert
+      && !fest(Math.floor(P.x + P.b/2), Math.floor(P.y) - 1);
+}
+
 function diagonalZiel(){
   if (!taste.auf || P.klettert) return null;
   if (!taste.links && !taste.rechts) return null;
@@ -1036,6 +1048,9 @@ function zielKachel(){
   // Diagonal nach oben, mit Pfeil hoch und einer Seitentaste zusammen.
   // Damit graebt Levi sich eine Treppe und kommt ohne Balken und Schienen
   // wieder hoch. Muss vor den anderen Zielen stehen.
+  // Der Schraegabbau laeuft neben dem Sprung her: er sperrt ihn nicht mehr und
+  // bremst nicht mehr. Wer hoch und vorwaerts drueckt, springt vorwaerts UND
+  // nimmt die Stufe mit - beides war vorher gegeneinander verriegelt.
   const dz = diagonalZiel();
   if (dz) return [dz[0], dz[1], 0.7];
 
@@ -1117,12 +1132,18 @@ function brichKachel(x, y, werkzeug){
     melde('Fundstück aus alter Zeit, +' + g.schatz + ' Goldstücke', 'gold');
     pruefeSieg();
   } else if (g.erz){
-    const n = nimmMaterial(g.erz, 1);
-    if (n) melde('+1 ' + MATERIAL[g.erz].name, 'gold', 'erz');
+    // Aderbonus: wer einer Ader folgt statt wahllos zu graben, bekommt jedes
+    // vierte Stueck doppelt. Damit ist der Abbau eine Wahl, keine Wiederholung.
+    if (g.erz === aderArt) aderZahl++; else { aderArt = g.erz; aderZahl = 1; }
+    const zugabe = (aderZahl % 4 === 0) ? 1 : 0;
+    const n = nimmMaterial(g.erz, 1 + zugabe);
+    if (n) melde('+' + n + ' ' + MATERIAL[g.erz].name + (n > 1 ? '   Ader!' : ''),
+                 'gold', 'erz');
     staub(x+0.5, y+0.5, 9, MATERIAL[g.erz].farbe);
     klangGraben(g.haerte, true);          // erst der Bruch, dann das Funkeln
     klang('erz');
   } else {
+    aderArt = null; aderZahl = 0;      // taubes Gestein unterbricht die Ader
     staub(x+0.5, y+0.5, 6, g.korn);
     klangGraben(g.haerte, true);
   }
@@ -1302,19 +1323,25 @@ function anBasis(){
   return Math.abs(cx - (BASIS_X + 0.5)) < 2.8 && P.y + P.h > fuss - 1.6 && P.y + P.h < fuss + 0.6;
 }
 
+/* Sackgassennetz. Ohne Werkzeug, ohne Gold, ohne Fracht und mit leerem Lager
+   kann Levi nichts mehr brechen, also nichts mehr verdienen, also nie wieder
+   ein Werkzeug kaufen. Dieses Netz hing frueher am Haus - also genau dort, wo
+   ein Spieler ohne Werkzeug nicht mehr hinkommt. Es greift jetzt ueberall. */
+function sackgassenNetz(){
+  if (bestesWerkzeug(1) !== null) return;
+  if (lagerWert() > 0 || frachtStueck() > 0) return;
+  if (S.gold >= ((LADEN.find(w => w.id === 'schaufel').preis || {}).gold || 0)) return;
+  S.werkzeuge.schaufel = WZ.schaufel.halt;
+  melde('Letztes Werkzeug hin — im Rucksack lag noch eine Reserveschaufel', 'gut', 'reserve');
+  klang('kaufen');
+}
+
 function basisTick(dt){
   if (!anBasis()) return;
   /* Sicherheitsnetz gegen die Sackgasse. Ohne Werkzeug, ohne Gold und mit
      leerem Lager kann Levi nichts mehr brechen, also nichts mehr verdienen,
      also nie wieder ein Werkzeug kaufen. Gemessen: 0 Meter nach zehn Sekunden
      Graben. Das Haus haelt darum eine Reserveschaufel bereit. */
-  if (bestesWerkzeug(1) === null && lagerWert() === 0
-      && frachtStueck() === 0
-      && S.gold < ((LADEN.find(w => w.id === 'schaufel').preis || {}).gold || 0)){
-    S.werkzeuge.schaufel = WZ.schaufel.halt;
-    melde('Im Haus lag noch eine Reserveschaufel', 'gut', 'reserve');
-    klang('kaufen');
-  }
   /* Zweite Sackgasse, gemessen an einem Durchlauf: unten gestrandet, Seilwinden
      verbraucht, Gestein zu hart zum Weitergraben in jede Richtung. Wer die Mine
      verlaesst, nimmt darum immer mindestens ein Seil mit. */
@@ -2530,7 +2557,9 @@ function zeichneDunkelheit(){
   // Sonst bleibt es hell, wenn Levi waagrecht in die Flanke graebt.
   const cx = Math.max(0, Math.min(BREITE-1, Math.floor(P.x + P.b/2)));
   const t = (P.y + P.h/2) - ober[cx];
-  const a = Math.max(0, Math.min(0.90, (t/14) * 0.90));
+  // Untergrenze fuer die Sicht: unten soll es daemmrig sein, nicht schwarz,
+  // und der Abfall beginnt spaeter. Levi kam in der Tiefe nicht mehr zurecht.
+  const a = Math.max(0, Math.min(0.72, (t/20) * 0.72));
   if (a < 0.02) return;
   dctx.clearRect(0, 0, W, H);
   dctx.globalCompositeOperation = 'source-over';
@@ -2750,7 +2779,11 @@ function hud(){
   }
 
   const menge = frachtMasse(), kap = kapazitaet();
-  document.getElementById('frachtText').textContent = menge + ' / ' + kap;
+  // Stueckzahl allein sagt nichts ueber den Wert. Der Goldwert daneben macht
+  // sichtbar, wofuer sich das Schleppen lohnt.
+  const wert = Object.keys(S.fracht).reduce((s,m) => s + S.fracht[m]*MATERIAL[m].wert, 0);
+  document.getElementById('frachtText').textContent =
+    menge + ' / ' + kap + (wert ? '   ' + wert + ' G' : '');
   const fb = document.getElementById('frachtBalken');
   fb.style.width = (menge/kap*100) + '%';
   fb.className = 'fuellung ' + (menge >= kap ? 'warn' : 'orange');
@@ -3165,6 +3198,7 @@ function aktualisiere(dt){
   bohre(dt);
   pruefeEinsturz(dt);
   basisTick(dt);
+  sackgassenNetz();
   funkenTick(dt);
 
   if (beben > 0) beben = Math.max(0, beben - dt*22);

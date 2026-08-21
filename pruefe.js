@@ -317,7 +317,7 @@ pruefe('Frachtraum mit Wagen und Bohrer', lies('kapazitaet()') === 85, 'Kapazita
 lies('S.lager.silber = 5');
 const vorVerkauf = lies('S.gold');
 lies('verkaufe("silber")');
-pruefe('Silber bringt 14 je Einheit', lies('S.gold') === vorVerkauf + 70, 'Gold ' + lies('S.gold'));
+pruefe('Silber bringt 35 je Einheit', lies('S.gold') === vorVerkauf + 175, 'Gold ' + lies('S.gold'));
 
 /* ------------------------------ Fahrzeug --------------------------------- */
 lies('wechsleFahrzeug()');
