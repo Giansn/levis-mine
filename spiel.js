@@ -454,7 +454,7 @@ const P = {
   zx:-1, zy:-1, fortschritt:0, grabt:false, schwung:0,
 };
 
-let boden, bau, stuetze;          // Kachelfelder des aktuellen Bergs
+let boden, bau, stuetze, gesehen; // Kachelfelder des aktuellen Bergs
 let ober = new Int16Array(BREITE); // Urspruengliches Oberflaechenprofil
 const welten = {};                // bergNr -> {boden, bau, stuetze}
 
@@ -646,13 +646,16 @@ function neueWelt(nr){
     if (x < 1 || x > BREITE-2) continue;
     for (let y = ob[x]; y < ob[x]+2; y++) bo[y*BREITE+x] = ERDE;
   }
-  return {boden:bo, bau:new Uint8Array(BREITE*HOEHE), stuetze:new Uint16Array(BREITE*HOEHE)};
+  return {boden:bo, bau:new Uint8Array(BREITE*HOEHE), stuetze:new Uint16Array(BREITE*HOEHE),
+          gesehen:new Uint8Array(BREITE*HOEHE)};
 }
 
 function ladeWelt(nr){
   if (!welten[nr]) welten[nr] = neueWelt(nr);
   const w = welten[nr];
-  boden = w.boden; bau = w.bau; stuetze = w.stuetze;
+  // Sichtfeld notfalls nachruesten: Welten aus einem alten Stand haben keins
+  if (!w.gesehen) w.gesehen = new Uint8Array(BREITE*HOEHE);
+  boden = w.boden; bau = w.bau; stuetze = w.stuetze; gesehen = w.gesehen;
   ober = profilFeld(nr);          // rein rechnerisch, muss nicht gespeichert werden
   S.bergNr = nr;
   P.x = BASIS_X; P.y = basisY() - P.h; P.vx = 0; P.vy = 0;
@@ -803,6 +806,7 @@ function tastenDruck(e){
   else if (z === 'k') zeigeLaden();
   else if (z === 'm') zeigeBerge();
   else if (z === 'h') zeigeHilfe();
+  else if (z === 'p') zeigePlan();
   else if (e.key === 'Escape') schleier.hidden ? zeigeOptionen() : fensterZu();
 }
 addEventListener('keydown', tastenDruck);
@@ -3080,7 +3084,9 @@ function zeigeHilfe(){
         brichst du die Kachel <b>schräg über dir</b>. Die Kachel darunter bleibt als Stufe stehen,
         und auf die springst du hinauf. So gräbst du dir eine Treppe, auch wenn Balken und
         Schienen aufgebraucht sind.</td></tr>
-      <tr><td>Balken als Leiter</td><td>Setz beim Abstieg mit <kbd>Leer</kbd> Stützbalken in den Schacht.
+      <tr><td>Übersichtsplan</td><td>Mit <kbd>P</kbd> siehst du, wo du schon warst und
+        wie weit die Basis weg ist. Was du noch nicht gesehen hast, bleibt dunkel.</td></tr>
+      <tr><td>Balken als Leiter und Stufe</td><td>Setz beim Abstieg mit <kbd>B</kbd> oder <kbd>Leer</kbd> Stützbalken in den Schacht.
         An ihnen kletterst du mit <kbd>▲</kbd> und <kbd>▼</kbd> hoch und runter. Schienen taugen auch dazu.</td></tr>
       <tr><td>Seilwinde</td><td>Steckst du fest, zieht dich <kbd>L</kbd> samt Ladung sofort zur Basis.
         Zwei hast du dabei, weitere kosten 14 Goldstücke.</td></tr>
@@ -3099,7 +3105,7 @@ function zeigeHilfe(){
         Bessere Lampen kaufst du im Laden.</td></tr>
       <tr><td>Dynamit</td><td>Sprengt alles im Umkreis und ist danach weg.</td></tr>
       <tr><td>Stützbalken</td><td>Halten den Stollen im Umkreis von ${STUETZ_R} Kacheln. Wo rote Risse zu sehen sind,
-        fehlt die Stütze und die Decke kommt herunter. Balken sind ausserdem Leitern.</td></tr>
+        fehlt die Stütze und die Decke kommt herunter. Balken sind ausserdem Leitern, und du kannst oben darauf stehen. Nochmal <kbd>B</kbd> auf einem gesetzten Balken nimmt ihn wieder mit.</td></tr>
       <tr><td>Schienen und Wagen</td><td>Schienen ×20 kosten 50 Goldstücke, der Minenwagen ebenfalls 50.
         Liegt ein durchgehendes Gleis vom Stollen bis zur Basis, schickst du die Ladung mit <kbd>E</kbd> heim,
         statt selbst hochzuklettern.</td></tr>
@@ -3186,7 +3192,9 @@ function speichere(){
   if (abgeraeumt) return;
   try {
     const w = {};
-    for (const nr in welten) w[nr] = {boden: packe(welten[nr].boden), bau: packe(welten[nr].bau)};
+    for (const nr in welten) w[nr] = {boden: packe(welten[nr].boden),
+                                      bau: packe(welten[nr].bau),
+                                      gesehen: packe(welten[nr].gesehen)};
     localStorage.setItem(SCHLUESSEL, JSON.stringify({S, P:{x:P.x, y:P.y}, welten:w}));
   } catch(e){ /* voller Speicher stoppt das Spiel nicht */ }
 }
@@ -3209,9 +3217,12 @@ function lade(){
     const ba = entpacke(daten.welten[nr].bau, BREITE*HOEHE, Uint8Array);
     if (!bo || !ba) return false;           // unpassender Stand, lieber neu anfangen
     const st = new Uint16Array(BREITE*HOEHE);
-    welten[nr] = {boden:bo, bau:ba, stuetze:st};
+    // Alte Staende kennen das Sichtfeld noch nicht - dann faengt der Plan leer an
+    const ge = entpacke(daten.welten[nr].gesehen, BREITE*HOEHE, Uint8Array)
+               || new Uint8Array(BREITE*HOEHE);
+    welten[nr] = {boden:bo, bau:ba, stuetze:st, gesehen:ge};
     // Stuetzfeld aus den vorhandenen Balken neu aufbauen
-    boden = bo; bau = ba; stuetze = st;
+    boden = bo; bau = ba; stuetze = st; gesehen = welten[nr].gesehen;
     for (let y = 0; y < HOEHE; y++) for (let x = 0; x < BREITE; x++)
       if (ba[idx(x,y)] & 1) balkenBuchen(x, y, +1);
   }
@@ -3264,6 +3275,18 @@ function aktualisiere(dt){
     pruefeSieg();
   }
 
+  /* Aufzeichnen, was Levi gesehen hat. Nur das darf spaeter auf dem Plan
+     stehen - sonst verraet die Karte Hoehlen, in denen er nie war, und das
+     Erkunden waere wertlos. Der Radius ist die Lampenweite. */
+  const sichtR = Math.ceil(LAMPEN[S.lampe].weite * (S.imFahrzeug ? 1.4 : 1));
+  const gx = Math.floor(P.x + P.b/2), gy = Math.floor(P.y + P.h/2);
+  for (let y = Math.max(0, gy-sichtR); y <= Math.min(HOEHE-1, gy+sichtR); y++){
+    for (let x = Math.max(0, gx-sichtR); x <= Math.min(BREITE-1, gx+sichtR); x++){
+      const dx = x-gx, dy = y-gy;
+      if (dx*dx + dy*dy <= sichtR*sichtR) gesehen[idx(x,y)] = 1;
+    }
+  }
+
   // Kamera folgt weich
   const ziel = kameraZiel();
   const f = 1 - Math.pow(0.0015, dt);
@@ -3293,12 +3316,101 @@ function schleife(t){
   requestAnimationFrame(schleife);
 }
 
+
+/* ========================================================================== */
+/*                            Uebersichtsplan                                 */
+/* ========================================================================== */
+
+/* Der Plan zeigt, was Levi selbst freigelegt hat - nicht die ganze Welt. Waere
+   alles sichtbar, waere Erkunden wertlos; waere nichts sichtbar, wuesste er
+   nicht, wo er ist. Abgebaut heisst: unter der urspruenglichen Bergflanke und
+   jetzt leer. Dafuer braucht es kein zusaetzliches Feld - der Weltzustand
+   weiss es schon. */
+const PLAN_K = 5;              // Bildpunkte je Kachel
+const PLAN_HOCH = 56;          // wie viele Kachelzeilen der Ausschnitt zeigt
+
+function planBild(){
+  const my = Math.floor(P.y + P.h/2);
+  const y0 = Math.max(0, Math.min(HOEHE - PLAN_HOCH, my - Math.floor(PLAN_HOCH/2)));
+  const c = document.createElement('canvas');
+  c.width = BREITE * PLAN_K; c.height = PLAN_HOCH * PLAN_K;
+  const g = c.getContext('2d');
+  g.fillStyle = '#14111b'; g.fillRect(0, 0, c.width, c.height);
+
+  for (let y = y0; y < y0 + PLAN_HOCH; y++){
+    const py = (y - y0) * PLAN_K;
+    for (let x = 0; x < BREITE; x++){
+      const px = x * PLAN_K;
+      if (y < ober[x]){ continue; }                 // Himmel bleibt leer
+      if (!gesehen[idx(x,y)]) continue;             // wo Levi nie war, bleibt es dunkel
+      const a = art(x, y);
+      let f = (a !== LEER) ? '#272233' : '#7d7590'; // Fels oder offener Gang
+      const b = bau[idx(x,y)];
+      if (b & 1)                   f = '#a9793f';    // Stuetzbalken
+      else if (b & 2)              f = '#8f96a3';    // Schiene
+      g.fillStyle = f;
+      g.fillRect(px, py, PLAN_K, PLAN_K);
+    }
+  }
+
+  // Tiefenmarken alle 20 Kacheln, damit die Zahl am Rand eine Bedeutung hat
+  g.font = '9px system-ui, sans-serif';
+  for (let y = y0; y < y0 + PLAN_HOCH; y++){
+    if (y < FUSS || (y - FUSS) % 20 !== 0) continue;
+    const py = (y - y0) * PLAN_K;
+    g.strokeStyle = 'rgba(255,255,255,.14)';
+    g.beginPath(); g.moveTo(0, py + 0.5); g.lineTo(c.width, py + 0.5); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.45)';
+    g.fillText(((y - FUSS) * METER) + ' m', 3, py + 10);
+  }
+
+  // Basis und Levi zuletzt, damit nichts sie ueberdeckt
+  const by = basisY();
+  if (by >= y0 && by < y0 + PLAN_HOCH){
+    g.fillStyle = '#5ad1a0';
+    g.fillRect(BASIS_X*PLAN_K - 2, (by - y0)*PLAN_K - 6, PLAN_K + 4, PLAN_K + 6);
+  }
+  const lx = (P.x + P.b/2) * PLAN_K, ly = (P.y + P.h/2 - y0) * PLAN_K;
+  g.fillStyle = '#ffd24a';
+  g.beginPath(); g.arc(lx, ly, 3.6, 0, 7); g.fill();
+  g.strokeStyle = '#1a1620'; g.lineWidth = 1.4; g.stroke();
+
+  return {c, y0, by};
+}
+
+function zeigePlan(){
+  let quelle = '', y0 = 0, by = 0;
+  try { const p = planBild(); quelle = p.c.toDataURL(); y0 = p.y0; by = p.by; }
+  catch(e){ /* ohne Bild bleibt wenigstens der Text */ }
+
+  const tiefe = Math.max(0, Math.round((P.y + P.h - FUSS) * METER));
+  const zurBasis = Math.round((P.y + P.h - basisY()) * METER);
+  const ausserhalb = by < y0 || by >= y0 + PLAN_HOCH;
+  const hinweis = ausserhalb
+    ? `<p class="hinweis">Die Basis liegt ${Math.abs(zurBasis)} m ${zurBasis > 0 ? 'über' : 'unter'} dir und ist auf diesem Ausschnitt nicht zu sehen.</p>`
+    : '';
+
+  fenster('Übersichtsplan', `
+    <p class="hinweis">Du bist ${tiefe} m tief. Der Plan zeigt nur, wo du schon warst.</p>
+    ${quelle ? `<img src="${quelle}" alt="Plan" style="width:100%;max-width:460px;display:block;margin:0 auto;image-rendering:pixelated;border-radius:6px">` : ''}
+    ${hinweis}
+    <div class="planLegende">
+      <span><i style="background:#ffd24a"></i>Du</span>
+      <span><i style="background:#5ad1a0"></i>Basis</span>
+      <span><i style="background:#7d7590"></i>Gang</span>
+      <span><i style="background:#a9793f"></i>Balken</span>
+      <span><i style="background:#8f96a3"></i>Schiene</span>
+      <span><i style="background:#272233"></i>Fels</span>
+    </div>`);
+}
+
 /* ========================================================================== */
 /*                                  Start                                     */
 /* ========================================================================== */
 
 document.getElementById('btnLaden').onclick = zeigeLaden;
 document.getElementById('btnBerge').onclick = zeigeBerge;
+document.getElementById('btnPlan').onclick = zeigePlan;
 document.getElementById('btnHilfe').onclick = zeigeHilfe;
 document.getElementById('btnTon').onclick = e => {
   S.ton = !S.ton;
