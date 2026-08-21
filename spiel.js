@@ -324,7 +324,7 @@ function zeigeOptionen(nachfrage){
     </div>
     <h3 class="abschnitt">Gehe zu</h3>
     <div class="gitter">
-      <div class="ware"><div class="kopf2"><b>Laden</b></div><p>Ausrüstung kaufen und Erz verkaufen.</p>${knopf('laden', 'Laden öffnen', 'zweit')}</div>
+      <div class="ware"><div class="kopf2"><b>Laden</b></div><p>Ausrüstung kaufen.</p>${knopf('laden', 'Laden öffnen', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Berge</b></div><p>Berg wechseln oder einen neuen öffnen.</p>${knopf('berge', 'Berge zeigen', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Hilfe</b></div><p>Steuerung und Spielregeln.</p>${knopf('hilfe', 'Hilfe zeigen', 'zweit')}</div>
       <div class="ware"><div class="kopf2"><b>Spieler</b><span style="color:var(--matt)">${spieler || 'ohne Namen'}</span></div>
@@ -369,18 +369,18 @@ const LADEN = [
   {id:'schaufel', art:'werkzeug', name:'Schaufel', stufe:1,
    text:'Bricht Erde und Geröll, sehr schnell.', preis:{gold:6}},
   {id:'pickel', art:'werkzeug', name:'Pickel', stufe:1,
-   text:'Bricht Stein, Eisenerz und Kupfer.', preis:{gold:14, erz:3}},
+   text:'Bricht Stein, Eisenerz und Kupfer.', preis:{gold:14}},
   {id:'hammer', art:'werkzeug', name:'Hammer & Meissel', stufe:2,
-   text:'Bricht Hartstein, Bronze und Silber.', preis:{gold:45, erz:8, kupfer:5}},
+   text:'Bricht Hartstein, Bronze und Silber.', preis:{gold:45}},
   {id:'nagel', art:'werkzeug', name:'Grosser Hammer & Nagel', stufe:3,
-   text:'Bricht Granit und Golderz, das tiefste Gestein.', preis:{gold:110, erz:14, bronze:6}},
+   text:'Bricht Granit und Golderz, das tiefste Gestein.', preis:{gold:110}},
   {id:'lampe', art:'lampe', stufe:1, name:'Lampe', text:''},
   {id:'dynamit', art:'stapel', anzahl:1, name:'Dynamit', stufe:1,
    text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:8}},
   {id:'balken', art:'stapel', anzahl:20, name:'Leitern und Stützbalken ×20', stufe:1,
    text:'Deine Leiter nach oben: an gesetzten Balken kletterst du mit ▲ und ▼. '
       + 'Zugleich stützen sie den Stollen gegen Einsturz. Setzen mit der Leertaste.',
-   preis:{gold:12, erz:4}},
+   preis:{gold:12}},
   {id:'seilwinde', art:'stapel', anzahl:2, name:'Seilwinde ×2', stufe:1,
    text:'Zieht dich samt Ladung sofort zur Basis hoch, wenn du unten feststeckst.', preis:{gold:10}},
   {id:'schienen', art:'stapel', anzahl:20, name:'Schienen ×20', stufe:1,
@@ -398,8 +398,8 @@ const STUFEN = [0, 150, 400, 900, 1800, 3200, 5000];
 const LAMPEN = [
   {name:'Helmlampe',          weite:5.0},
   {name:'Karbidlampe',        weite:7.4,  preis:{gold:28}},
-  {name:'Starke Grubenlampe', weite:10.2, preis:{gold:90, kupfer:8}},
-  {name:'Scheinwerfer',       weite:13.8, preis:{gold:230, silber:10}},
+  {name:'Starke Grubenlampe', weite:10.2, preis:{gold:90}},
+  {name:'Scheinwerfer',       weite:13.8, preis:{gold:230}},
 ];
 
 /* --------------------------------- Physik -------------------------------- */
@@ -735,25 +735,25 @@ function nimmMaterial(m, n){
   return echt;
 }
 
+/* Abliefern macht sofort Gold. Frueher wanderte Erz ins Lager und musste im
+   Laden von Hand verkauft werden - vier Schritte zwischen Levi und seinem
+   Erfolg, und ein Kind, das graebt, macht davon nur die ersten zwei. Beim
+   ersten Spielen blieb er darum mit vollem Lager und null Goldstuecken sitzen.
+   Jetzt gilt eine Regel in einem Satz: heimkommen macht Gold. */
 function abliefern(){
   if (frachtStueck() <= 0) return;
-  let goldstuecke = 0;
+  let gold = 0;
   const teile = [];
   for (const m of MATS){
     const n = S.fracht[m];
     if (!n) continue;
-    if (m === 'gold'){ goldstuecke += n * MATERIAL.gold.wert; }
-    else S.lager[m] += n;
+    gold += n * MATERIAL[m].wert;
     teile.push(n + '× ' + MATERIAL[m].name);
     S.fracht[m] = 0;
   }
-  if (goldstuecke){ S.gold += goldstuecke; S.verdient += goldstuecke; }
+  S.gold += gold; S.verdient += gold;
   klang('muenze');
-  melde('Abgeliefert: ' + teile.join(', ') + (goldstuecke ? '  →  +' + goldstuecke + ' Goldstücke' : ''), 'gut');
-  // Erz wird nicht von selbst zu Gold. Wer das nicht weiss, steht mit vollem
-  // Lager und null Goldstuecken da und versteht nicht, warum nichts geht.
-  const wert = lagerWert();
-  if (wert > 0) melde('Im Lager liegt Erz für ' + wert + ' Goldstücke. Im Laden mit K verkaufen', 'gold', 'verkaufen');
+  melde('Abgeliefert: ' + teile.join(', ') + '  →  +' + gold + ' Goldstücke', 'gold');
   pruefeSieg();
 }
 
@@ -2793,11 +2793,17 @@ function hud(){
     .map(m => `<li><i style="background:${MATERIAL[m].farbe}"></i><span>${MATERIAL[m].name}</span><b>${S.fracht[m]}</b></li>`)
     .join('');
 
+  /* Seit Abliefern sofort Gold macht, bleibt das Lager im normalen Spiel leer.
+     Eine leere Ueberschrift ist Ballast, darum verschwindet der ganze Block -
+     er kommt nur zurueck, wenn ein alter Stand noch etwas darin hat. */
   const lk = document.getElementById('lagerKopf');
+  const lagerLeer = lagerWert() === 0;
   if (lk){
-    const wert = lagerWert();
-    lk.textContent = wert > 0 ? 'Lager im Haus · ' + zahl(wert) + ' Goldstücke wert' : 'Lager im Haus';
+    lk.hidden = lagerLeer;
+    lk.textContent = 'Lager im Haus · ' + zahl(lagerWert()) + ' Goldstücke wert';
   }
+  const ll = document.getElementById('lager');
+  if (ll) ll.hidden = lagerLeer;
   document.getElementById('lager').innerHTML = MATS
     .filter(m => S.lager[m] > 0)
     .map(m => `<li><i style="background:${MATERIAL[m].farbe}"></i><span>${MATERIAL[m].name}</span><b>${S.lager[m]}</b></li>`)
@@ -2927,15 +2933,14 @@ function zeigeLaden(){
       <div class="kopf2"><b>${MATERIAL[m].name}</b><span style="color:var(--gold)">${S.lager[m]} Stück</span></div>
       <p>${MATERIAL[m].wert} Goldstücke pro Einheit, macht ${S.lager[m]*MATERIAL[m].wert} Goldstücke.</p>
       <button class="kauf zweit" data-verkauf="${m}">Alles verkaufen</button>
-    </div>`).join('') || '<p class="hinweis">Das Lager im Haus ist leer. Bring Erz von unten herauf.</p>';
+    </div>`).join('');
 
   fenster('Laden an der Basis', `
     <p class="hinweis">${zahl(S.gold)} Goldstücke im Haus, das sind CHF ${zahl(S.gold*FRANKEN)}. Stufe ${st}.
     Ausrüstung ${ausbauStand()} von ${AUSBAU.length}.</p>
     <h3 class="abschnitt">Ausrüstung</h3>
     <div class="gitter">${waren}</div>
-    <h3 class="abschnitt">Erz verkaufen</h3>
-    <div class="gitter">${verkauf}</div>`);
+    ${verkauf ? '<h3 class="abschnitt">Erz verkaufen</h3><div class="gitter">' + verkauf + '</div>' : ''}`);
 }
 
 function kaufe(id){
@@ -3164,6 +3169,14 @@ function lade(){
   try { daten = JSON.parse(localStorage.getItem(SCHLUESSEL)); } catch(e){ return false; }
   if (!daten || !daten.S) return false;
   Object.assign(S, daten.S);
+  /* Umstellung alter Staende: Erz ist keine Zutat mehr, das Lager waere nur
+     noch totes Kapital. Was drin liegt, wird beim Laden einmalig zu Gold. */
+  let ausLager = 0;
+  for (const m of MATS){
+    const n = S.lager[m] || 0;
+    if (n){ ausLager += n * MATERIAL[m].wert; S.lager[m] = 0; }
+  }
+  if (ausLager){ S.gold += ausLager; S.verdient += ausLager; }
   for (const nr in daten.welten){
     const bo = entpacke(daten.welten[nr].boden, BREITE*HOEHE, Uint8Array);
     const ba = entpacke(daten.welten[nr].bau, BREITE*HOEHE, Uint8Array);
