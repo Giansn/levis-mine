@@ -419,7 +419,7 @@ pruefe('Levi steigt die Stufe hinauf', bestiegen,
 /* ------------------------ Aufrufpunkte vorhanden ------------------------- */
 /* Ein zeilenweises Entfernen hat einmal fensterZu mitgelöscht. node --check
    fand nichts, weil es syntaktisch gueltig blieb. Darum diese Liste. */
-const AUFRUFE = ['fenster','fensterZu','zeigeLaden','zeigeBerge','zeigeHilfe','zeigePlan','planBild','kaufe','verkaufe',
+const AUFRUFE = ['fenster','fensterZu','zeigeLaden','zeigeBerge','zeigeHilfe','zeigeKarte','karteBild','kaufe','verkaufe',
   'wechsleBerg','setzeBalken','legeSchiene','zuendeDynamit','sendeWagen','nutzeSeilwinde',
   'wechsleFahrzeug','speichere','lade','neuAnfangen','zeichne','hud','ladenListe','zeigeAbsturz'];
 const fehlend = AUFRUFE.filter(f => lies('typeof ' + f) !== 'function');

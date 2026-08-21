@@ -806,7 +806,7 @@ function tastenDruck(e){
   else if (z === 'k') zeigeLaden();
   else if (z === 'm') zeigeBerge();
   else if (z === 'h') zeigeHilfe();
-  else if (z === 'p') zeigePlan();
+  else if (z === 'p') zeigeKarte();
   else if (e.key === 'Escape') schleier.hidden ? zeigeOptionen() : fensterZu();
 }
 addEventListener('keydown', tastenDruck);
@@ -3084,7 +3084,7 @@ function zeigeHilfe(){
         brichst du die Kachel <b>schräg über dir</b>. Die Kachel darunter bleibt als Stufe stehen,
         und auf die springst du hinauf. So gräbst du dir eine Treppe, auch wenn Balken und
         Schienen aufgebraucht sind.</td></tr>
-      <tr><td>Übersichtsplan</td><td>Mit <kbd>P</kbd> siehst du, wo du schon warst und
+      <tr><td>Karte</td><td>Mit <kbd>P</kbd> siehst du, wo du schon warst und
         wie weit die Basis weg ist. Was du noch nicht gesehen hast, bleibt dunkel.</td></tr>
       <tr><td>Balken als Leiter und Stufe</td><td>Setz beim Abstieg mit <kbd>B</kbd> oder <kbd>Leer</kbd> Stützbalken in den Schacht.
         An ihnen kletterst du mit <kbd>▲</kbd> und <kbd>▼</kbd> hoch und runter. Schienen taugen auch dazu.</td></tr>
@@ -3318,29 +3318,29 @@ function schleife(t){
 
 
 /* ========================================================================== */
-/*                            Uebersichtsplan                                 */
+/*                            Karte                                 */
 /* ========================================================================== */
 
-/* Der Plan zeigt, was Levi selbst freigelegt hat - nicht die ganze Welt. Waere
+/* Die Karte zeigt, was Levi selbst freigelegt hat - nicht die ganze Welt. Waere
    alles sichtbar, waere Erkunden wertlos; waere nichts sichtbar, wuesste er
    nicht, wo er ist. Abgebaut heisst: unter der urspruenglichen Bergflanke und
    jetzt leer. Dafuer braucht es kein zusaetzliches Feld - der Weltzustand
    weiss es schon. */
-const PLAN_K = 5;              // Bildpunkte je Kachel
-const PLAN_HOCH = 56;          // wie viele Kachelzeilen der Ausschnitt zeigt
+const KARTE_K = 5;              // Bildpunkte je Kachel
+const KARTE_HOCH = 56;          // wie viele Kachelzeilen der Ausschnitt zeigt
 
-function planBild(){
+function karteBild(){
   const my = Math.floor(P.y + P.h/2);
-  const y0 = Math.max(0, Math.min(HOEHE - PLAN_HOCH, my - Math.floor(PLAN_HOCH/2)));
+  const y0 = Math.max(0, Math.min(HOEHE - KARTE_HOCH, my - Math.floor(KARTE_HOCH/2)));
   const c = document.createElement('canvas');
-  c.width = BREITE * PLAN_K; c.height = PLAN_HOCH * PLAN_K;
+  c.width = BREITE * KARTE_K; c.height = KARTE_HOCH * KARTE_K;
   const g = c.getContext('2d');
   g.fillStyle = '#14111b'; g.fillRect(0, 0, c.width, c.height);
 
-  for (let y = y0; y < y0 + PLAN_HOCH; y++){
-    const py = (y - y0) * PLAN_K;
+  for (let y = y0; y < y0 + KARTE_HOCH; y++){
+    const py = (y - y0) * KARTE_K;
     for (let x = 0; x < BREITE; x++){
-      const px = x * PLAN_K;
+      const px = x * KARTE_K;
       if (y < ober[x]){ continue; }                 // Himmel bleibt leer
       if (!gesehen[idx(x,y)]) continue;             // wo Levi nie war, bleibt es dunkel
       const a = art(x, y);
@@ -3349,15 +3349,15 @@ function planBild(){
       if (b & 1)                   f = '#a9793f';    // Stuetzbalken
       else if (b & 2)              f = '#8f96a3';    // Schiene
       g.fillStyle = f;
-      g.fillRect(px, py, PLAN_K, PLAN_K);
+      g.fillRect(px, py, KARTE_K, KARTE_K);
     }
   }
 
   // Tiefenmarken alle 20 Kacheln, damit die Zahl am Rand eine Bedeutung hat
   g.font = '9px system-ui, sans-serif';
-  for (let y = y0; y < y0 + PLAN_HOCH; y++){
+  for (let y = y0; y < y0 + KARTE_HOCH; y++){
     if (y < FUSS || (y - FUSS) % 20 !== 0) continue;
-    const py = (y - y0) * PLAN_K;
+    const py = (y - y0) * KARTE_K;
     g.strokeStyle = 'rgba(255,255,255,.14)';
     g.beginPath(); g.moveTo(0, py + 0.5); g.lineTo(c.width, py + 0.5); g.stroke();
     g.fillStyle = 'rgba(255,255,255,.45)';
@@ -3366,11 +3366,11 @@ function planBild(){
 
   // Basis und Levi zuletzt, damit nichts sie ueberdeckt
   const by = basisY();
-  if (by >= y0 && by < y0 + PLAN_HOCH){
+  if (by >= y0 && by < y0 + KARTE_HOCH){
     g.fillStyle = '#5ad1a0';
-    g.fillRect(BASIS_X*PLAN_K - 2, (by - y0)*PLAN_K - 6, PLAN_K + 4, PLAN_K + 6);
+    g.fillRect(BASIS_X*KARTE_K - 2, (by - y0)*KARTE_K - 6, KARTE_K + 4, KARTE_K + 6);
   }
-  const lx = (P.x + P.b/2) * PLAN_K, ly = (P.y + P.h/2 - y0) * PLAN_K;
+  const lx = (P.x + P.b/2) * KARTE_K, ly = (P.y + P.h/2 - y0) * KARTE_K;
   g.fillStyle = '#ffd24a';
   g.beginPath(); g.arc(lx, ly, 3.6, 0, 7); g.fill();
   g.strokeStyle = '#1a1620'; g.lineWidth = 1.4; g.stroke();
@@ -3378,23 +3378,23 @@ function planBild(){
   return {c, y0, by};
 }
 
-function zeigePlan(){
+function zeigeKarte(){
   let quelle = '', y0 = 0, by = 0;
-  try { const p = planBild(); quelle = p.c.toDataURL(); y0 = p.y0; by = p.by; }
+  try { const p = karteBild(); quelle = p.c.toDataURL(); y0 = p.y0; by = p.by; }
   catch(e){ /* ohne Bild bleibt wenigstens der Text */ }
 
   const tiefe = Math.max(0, Math.round((P.y + P.h - FUSS) * METER));
   const zurBasis = Math.round((P.y + P.h - basisY()) * METER);
-  const ausserhalb = by < y0 || by >= y0 + PLAN_HOCH;
+  const ausserhalb = by < y0 || by >= y0 + KARTE_HOCH;
   const hinweis = ausserhalb
     ? `<p class="hinweis">Die Basis liegt ${Math.abs(zurBasis)} m ${zurBasis > 0 ? 'über' : 'unter'} dir und ist auf diesem Ausschnitt nicht zu sehen.</p>`
     : '';
 
-  fenster('Übersichtsplan', `
-    <p class="hinweis">Du bist ${tiefe} m tief. Der Plan zeigt nur, wo du schon warst.</p>
-    ${quelle ? `<img src="${quelle}" alt="Plan" style="width:100%;max-width:460px;display:block;margin:0 auto;image-rendering:pixelated;border-radius:6px">` : ''}
+  fenster('Karte', `
+    <p class="hinweis">Du bist ${tiefe} m tief. Die Karte zeigt nur, wo du schon warst.</p>
+    ${quelle ? `<img src="${quelle}" alt="Karte" style="width:100%;max-width:460px;display:block;margin:0 auto;image-rendering:pixelated;border-radius:6px">` : ''}
     ${hinweis}
-    <div class="planLegende">
+    <div class="karteLegende">
       <span><i style="background:#ffd24a"></i>Du</span>
       <span><i style="background:#5ad1a0"></i>Basis</span>
       <span><i style="background:#7d7590"></i>Gang</span>
@@ -3410,7 +3410,7 @@ function zeigePlan(){
 
 document.getElementById('btnLaden').onclick = zeigeLaden;
 document.getElementById('btnBerge').onclick = zeigeBerge;
-document.getElementById('btnPlan').onclick = zeigePlan;
+document.getElementById('btnKarte').onclick = zeigeKarte;
 document.getElementById('btnHilfe').onclick = zeigeHilfe;
 document.getElementById('btnTon').onclick = e => {
   S.ton = !S.ton;

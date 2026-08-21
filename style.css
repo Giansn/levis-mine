@@ -366,8 +366,8 @@ table.tafel kbd{
   .karte{width:78px}
 }
 
-/* Legende unter dem Uebersichtsplan: kleine Farbfelder mit Beschriftung */
-.planLegende{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;
+/* Legende unter dem Karte: kleine Farbfelder mit Beschriftung */
+.karteLegende{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;
   font-size:12px;color:var(--matt)}
-.planLegende span{display:flex;align-items:center;gap:5px}
-.planLegende i{width:11px;height:11px;border-radius:2px;display:block}
+.karteLegende span{display:flex;align-items:center;gap:5px}
+.karteLegende i{width:11px;height:11px;border-radius:2px;display:block}
