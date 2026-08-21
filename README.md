@@ -124,3 +124,31 @@ Bergwechsel sowie Speichern und Laden.
 ```bash
 node /home/g2thek/Desktop/levis-mine/pruefe.js
 ```
+
+## Spielzeit aus der Ferne freigeben
+
+Die verbrauchte Spielzeit steht im localStorage von Levis Gerät und läuft nicht
+mit dem Datum ab — ein neuer Tag fängt also nicht von selbst bei null an. Frei
+gibt sie entweder die Konsole auf dem Gerät selbst, oder die Datei
+[`freigabe.json`](freigabe.json) neben `index.html`:
+
+```json
+{ "marke": 1, "limit": 20 }
+```
+
+Das Spiel holt diese Datei beim Start und danach alle 45 Sekunden. Steht dort
+eine **höhere Marke** als die zuletzt gesehene, ist das die Freigabe: die
+Spielzeit geht auf null, die neue Marke wird gemerkt, und ein stehendes
+Sperrfenster schliesst sich von selbst. Dieselbe Marke wirkt nur einmal.
+
+**So gibst du vom Handy frei:** auf github.com die Datei `freigabe.json` öffnen,
+auf den Stift tippen, `marke` um eins erhöhen, auf Commit tippen. Nach ein bis
+zwei Minuten hat GitHub Pages die neue Datei, dann dauert es noch bis zu 45
+Sekunden bis zur nächsten Abfrage.
+
+`limit` ist die Zahl der Minuten je Freigabe und wird bei jeder Abfrage
+übernommen. **`"limit": 0` sperrt sofort** — auch das wirkt aus der Ferne, ohne
+dass die Marke sich ändern muss.
+
+Ohne Netz greift nichts davon; dann läuft die Uhr einfach weiter. Das ist der
+gewollte Rückfall.

@@ -1,0 +1,5 @@
+{
+  "marke": 1,
+  "limit": 20,
+  "hinweis": "marke um eins erhoehen setzt Levis Spielzeit zurueck. limit sind die Minuten je Freigabe; 0 sperrt sofort."
+}

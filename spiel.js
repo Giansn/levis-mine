@@ -166,6 +166,9 @@ function aufschliessen(wort){
 const ZEIT = 'levisMine.zeit';           // das Limit in Minuten
 const ZEIT_STAND = 'levisMine.zeitstand'; // die heute verbrauchte Zeit
 const STANDARD_LIMIT = 20;               // Minuten je Geraet, bis jemand freigibt
+const FREIGABE = 'levisMine.freigabe';   // zuletzt gesehene Marke aus dem Netz
+const FREIGABE_DATEI = 'freigabe.json';  // liegt neben index.html auf den Seiten
+const FREIGABE_TAKT = 45;                // Sekunden zwischen zwei Abfragen
 
 /* Die verbrauchte Zeit haengt bewusst NICHT am Spielstand. Lag sie dort, gab
    ein neuer Name auf dem Startbildschirm frische zwanzig Minuten, und das Feld
@@ -176,6 +179,46 @@ const STANDARD_LIMIT = 20;               // Minuten je Geraet, bis jemand freigi
    gibt sie allein zeitZuruecksetzen() ueber die Entwicklerkonsole. */
 let zeitStand = {sekunden:0, gewarnt:0};
 let zeitSchreibUhr = 0;
+
+/* Fernfreigabe. Das Spiel liegt auf GitHub Pages, also gibt es keinen Server,
+   der etwas entgegennehmen koennte - wohl aber eine Datei, die es abholen kann.
+   freigabe.json traegt eine Marke. Steht dort eine hoehere Zahl als die zuletzt
+   gesehene, ist das die Freigabe: die Spielzeit geht auf null und die neue
+   Marke wird gemerkt, damit dieselbe Freigabe nicht zweimal zaehlt.
+
+   Damit setzt man die Uhr von ueberall zurueck, indem man die Zahl in der Datei
+   erhoeht - auch vom Handy aus ueber die Weboberflaeche von GitHub. Levi muss
+   dafuer nichts tun ausser online zu sein.
+
+   Ohne Netz und beim Start von einer Datei schlaegt der Abruf fehl; dann bleibt
+   alles, wie es ist. Das ist der richtige Rueckfall: die Uhr laeuft weiter. */
+let zeitEndeSteht = false;
+
+function markeGesehen(){
+  const n = parseInt(localStorage.getItem(FREIGABE), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function freigabePruefen(){
+  try {
+    // Zeitstempel gegen den Zwischenspeicher: die Seiten liefern sonst
+    // minutenlang die alte Datei aus, und die Freigabe kaeme zu spaet.
+    const antwort = await fetch(FREIGABE_DATEI + '?t=' + Date.now(), {cache: 'no-store'});
+    if (!antwort.ok) return false;
+    const d = await antwort.json();
+    if (typeof d.limit === 'number' && d.limit >= 0){
+      try { localStorage.setItem(ZEIT, String(Math.round(d.limit))); } catch(e){}
+    }
+    if (typeof d.marke !== 'number' || d.marke <= markeGesehen()) return false;
+    try { localStorage.setItem(FREIGABE, String(d.marke)); } catch(e){}
+    zeitStand = {sekunden: 0, gewarnt: 0};
+    zeitSichern(); hud();
+    if (zeitEndeSteht){ zeitEndeSteht = false; fensterZu(); }
+    melde('Neue Spielzeit freigegeben, ' + limitMinuten() + ' Minuten', 'gold');
+    klang('muenze');
+    return true;
+  } catch(e){ return false; }
+}
 
 function zeitLaden(){
   try {
@@ -217,6 +260,7 @@ function zeitTicken(dt){
 }
 
 function zeigeZeitEnde(){
+  zeitEndeSteht = true;   // damit eine Fernfreigabe das Fenster schliessen kann
   speichere();
   fenster('Für heute ist Schluss', `
     <p class="hinweis">Deine ${limitMinuten()} Minuten sind aufgebraucht.</p>
@@ -3500,6 +3544,17 @@ document.getElementById('btnTon').onclick = e => {
 passeGroesseAn();
 baueAlleKachelbilder();
 zeitLaden();
+
+/* Eigener Taktgeber, bewusst nicht an der Spielschleife: steht das Sperrfenster,
+   laeuft aktualisiere() nicht mehr - und genau dann wird die Freigabe gebraucht. */
+freigabePruefen();
+const freigabeTakt = setInterval(freigabePruefen, FREIGABE_TAKT * 1000);
+/* In Node haelt ein laufendes Intervall den Prozess am Leben, und die
+   Testsuite endet dann nie - gemessen: alle Pruefungen gruen, Rueckgabe 124,
+   also Zeitueberschreitung. Im Browser gibt setInterval eine Zahl zurueck, in
+   Node ein Objekt mit unref. Der optionale Aufruf trifft genau diesen
+   Unterschied und aendert im Browser nichts. */
+freigabeTakt.unref?.();
 
 const zuletzt = localStorage.getItem(SPIELER_ZULETZT);
 if (zuletzt && spielerListe().includes(zuletzt)){
