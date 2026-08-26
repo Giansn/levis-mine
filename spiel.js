@@ -1109,7 +1109,11 @@ function bewege(dt){
   if (!P.klettert){
     let g = G;
     if (P.vy > 0) g *= FALL_FAKT;
-    else if (P.vy < 0 && !P.haeltSprung) g *= KURZ_FAKT;
+    // ...ausser im Bohrfahrzeug: die Kappung kuerzt einen getippten SPRUNG.
+    // Schub ist kein Sprung, gehalten wird er ueber die ganze Fahrt. Mit der
+    // Kappung lag die Schwerkraft beim Steigen bei G*KURZ_FAKT = 64,6 und
+    // damit ueber dem Schub von 54 - das Fahrzeug konnte nie abheben.
+    else if (P.vy < 0 && !P.haeltSprung && !S.imFahrzeug) g *= KURZ_FAKT;
     P.vy = Math.min(MAX_FALL, P.vy + g*dt);
   }
 
@@ -3051,6 +3055,18 @@ function hud(){
   /* Seit Abliefern sofort Gold macht, bleibt das Lager im normalen Spiel leer.
      Eine leere Ueberschrift ist Ballast, darum verschwindet der ganze Block -
      er kommt nur zurueck, wenn ein alter Stand noch etwas darin hat. */
+  /* Die Statustafel waechst mit der Frachtliste und reicht dann bis dorthin,
+     wo Levi steht. Statt sie zu verkleinern wird sie durchsichtig, sobald er
+     dahinter ist: die Angaben bleiben lesbar, die Figur bleibt sichtbar. */
+  const tafel = document.getElementById('status');
+  if (tafel && !tafel.hidden){
+    const r = tafel.getBoundingClientRect();
+    const sx = (P.x + P.b/2)*K - kamera.x, sy = (P.y + P.h/2)*K - kamera.y;
+    const dahinter = sx > r.left - 26 && sx < r.right + 26
+                  && sy > r.top  - 26 && sy < r.bottom + 26;
+    tafel.style.opacity = dahinter ? '0.20' : '1';
+  }
+
   const lk = document.getElementById('lagerKopf');
   const lagerLeer = lagerWert() === 0;
   if (lk){

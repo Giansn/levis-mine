@@ -104,6 +104,7 @@ html,body{
 
 /* ---------------- Status links ---------------- */
 #status{
+  transition:opacity .18s;
   position:fixed;top:64px;left:8px;width:206px;
   padding:8px;
   background:var(--platte);

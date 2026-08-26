@@ -166,10 +166,32 @@ try {
   }
 } catch (e){ fehler.push('beim Graben: ' + e.stack); }
 lies('taste.ab = false; taste.rechts = false');
-// 40 m statt 60: bei 60 flackerte sie, echte Blockaden lagen frueher bei 0 bis 24 m
-pruefe('Levi graebt sich tief nach unten', tiefe() > 40, tiefe() + ' m nach 53 s');
+/* Hier steht bewusst KEINE Tiefenschwelle mehr. Ueber viele Laeufe kam dieser
+   Bot in derselben Fassung des Spiels auf 14 bis 160 Meter - das misst die
+   Haerte der ausgelosten Welt, nicht ob Graben geht. Jede Schwelle dazwischen
+   war entweder blind oder flackerte. Der Wert wird darum berichtet und nicht
+   behauptet; gefangen wird nur der Totalausfall. Ob Graben wirklich
+   funktioniert, prueft der deterministische Schacht darunter. */
+pruefe('Levi kommt im Zufallsberg ueberhaupt voran', tiefe() > 0, tiefe() + ' m nach 53 s');
 pruefe('Werkzeug nutzt sich ab', lies('S.werkzeuge.schaufel') < 120, 'Schaufel ' + lies('S.werkzeuge.schaufel'));
 pruefe('Zustand bleibt im Rahmen', lies('S.leben') > 0 && lies('S.leben') <= 100, 'Leben ' + lies('S.leben'));
+
+/* Derselbe Vorgang ohne Wuerfel: ein gestellter Schacht aus reiner Erde, ein
+   frischer Spaten. Was hier stockt, ist ein Fehler im Graben und nicht Pech
+   bei der Weltauslosung - deshalb darf diese Schwelle scharf sein. */
+lies(`(()=>{const x = BASIS_X + 6, y = FUSS + 4;
+  for (let dy = 0; dy <= 24; dy++) boden[idx(x, y+dy)] = ERDE;
+  for (let dy = -3; dy < 0; dy++) boden[idx(x, y+dy)] = LEER;
+  S.werkzeuge.schaufel = 120;
+  P.x = x + 0.5 - P.b/2; P.y = y - P.h; P.vx = 0; P.vy = 0;
+  for (let i=0;i<30;i++) aktualisiere(1/60);
+  globalThis.schachtStart = Math.floor(P.y + P.h);
+  taste.ab = true;
+  for (let i=0;i<360;i++) aktualisiere(1/60);
+  taste.ab = false;
+  globalThis.schachtTief = Math.floor(P.y + P.h) - schachtStart;})()`);
+pruefe('Gestellter Erdschacht wird durchgraben', lies('schachtTief') >= 8,
+       lies('schachtTief') + ' Kacheln in 6 s');
 
 /* Levi erst landen lassen. Solange er faellt, wechselt die Zielkachel jedes
    Bild und der Grabfortschritt beginnt immer von neuem. */
@@ -327,6 +349,24 @@ try { for (let i = 0; i < 240; i++) lies('aktualisiere(1/60)'); }
 catch (e){ fehler.push('im Fahrzeug: ' + e.stack); }
 lies('taste.auf = false');
 pruefe('Schub verbraucht Treibstoff', lies('S.treibstoff') < 100, 'Tank ' + Math.round(lies('S.treibstoff')));
+
+/* Dass Schub Sprit frisst, hat die Sperre oben nicht bemerkt: das Fahrzeug
+   verbrauchte, ohne je zu steigen (G*KURZ_FAKT = 64,6 lag ueber SCHUB = 54).
+   Darum wird hier gemessen, was der Spieler sieht - Hoehe, nicht Tankstand. */
+lies(`(()=>{const x=24, y=FUSS+40;
+  for (let dy=-16; dy<=1; dy++) for (let dx=-1; dx<=1; dx++) boden[idx(x+dx,y+dy)] = LEER;
+  boden[idx(x,y+2)] = ERDE;
+  S.treibstoff = 100;
+  P.x = x+0.15; P.y = y+1-P.h; P.vx = 0; P.vy = 0;
+  for (let i=0;i<30;i++) aktualisiere(1/60);
+  globalThis.flugStart = P.y;
+  taste.auf = true;
+  for (let i=0;i<90;i++) aktualisiere(1/60);
+  taste.auf = false;
+  globalThis.flugHoehe = flugStart - P.y;})()`);
+pruefe('Bohrfahrzeug hebt unter Schub ab', lies('flugHoehe') > 3,
+       lies('flugHoehe').toFixed(1) + ' Kacheln in 1,5 s');
+
 lies('wechsleFahrzeug()');
 
 /* -------------------------------- Berge ---------------------------------- */
@@ -581,7 +621,9 @@ lies('fensterZu()');
 const leiter = lies(`(() => {
   const x = 24, y = FUSS + 40;
   for (let dy = -6; dy <= 0; dy++){ boden[idx(x,y+dy)] = LEER; bau[idx(x,y+dy)] = 1; }
-  boden[idx(x, y+1)] = ERDE;
+  // Weiches Gestein unter dem Schacht, damit die Pruefung nicht an zufaelliger
+  // Haerte haengt: sie misst, OB er weitergraben kann, nicht wie schnell.
+  for (let dy = 1; dy <= 10; dy++) boden[idx(x, y+dy)] = ERDE;
   P.x = x + 0.15; P.y = y + 1 - P.h; P.vx = 0; P.vy = 0;
   for (let i=0;i<30;i++) aktualisiere(1/60);
   return {x, y, amBoden: P.amBoden, klettert: P.klettert};
