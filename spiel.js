@@ -455,6 +455,9 @@ const LAMPEN = [
    Damit bleibt die zugesicherte Treppenstufe von 1 Kachel klar erreichbar. */
 const G          = 38;    // Schwerkraft, etwas herber als vorher
 const MAX_FALL   = 26;    // Endgeschwindigkeit im freien Fall
+const MAX_FALL_FZG = 20;  // dieselbe fuers Fahrzeug: schwerer Koerper, aber
+                          // kein Stein. Liegt unter STURZ_AB, ein Sturz
+                          // ohne Sprit rumst also hart und tut nicht weh.
 const LAUF       = 6.4;   // Höchsttempo zu Fuss, unverändert
 const ZUG        = 44;    // Anfahren am Boden, volles Tempo nach 0.15 s
 const BREMS      = 40;    // Bremsen am Boden, Nachlauf rund eine halbe Kachel
@@ -1108,13 +1111,18 @@ function bewege(dt){
      Kappzweig greift nur beim Steigen mit losgelassener Taste. */
   if (!P.klettert){
     let g = G;
-    if (P.vy > 0) g *= FALL_FAKT;
-    // ...ausser im Bohrfahrzeug: die Kappung kuerzt einen getippten SPRUNG.
-    // Schub ist kein Sprung, gehalten wird er ueber die ganze Fahrt. Mit der
-    // Kappung lag die Schwerkraft beim Steigen bei G*KURZ_FAKT = 64,6 und
-    // damit ueber dem Schub von 54 - das Fahrzeug konnte nie abheben.
-    else if (P.vy < 0 && !P.haeltSprung && !S.imFahrzeug) g *= KURZ_FAKT;
-    P.vy = Math.min(MAX_FALL, P.vy + g*dt);
+    /* FALL_FAKT und KURZ_FAKT sind beide Kniffe fuer den Tastensprung zu Fuss:
+       der eine laesst den Sprung entschlossen wirken, der andere kappt ihn beim
+       Loslassen. Im Fahrzeug gibt es keinen Sprung, und beide richteten dort
+       Schaden an - sie hoben die Schwerkraft ueber den Schub von 54. KURZ_FAKT
+       auf 64,6 beim Steigen: es hob nie ab. FALL_FAKT auf 57 beim Fallen: wer
+       einmal fiel, konnte mit Vollschub nichts mehr ausrichten und blieb bei
+       voller Fallgeschwindigkeit haengen. Im Fahrzeug zaehlt darum nur G. */
+    if (!S.imFahrzeug){
+      if (P.vy > 0) g *= FALL_FAKT;
+      else if (P.vy < 0 && !P.haeltSprung) g *= KURZ_FAKT;
+    }
+    P.vy = Math.min(S.imFahrzeug ? MAX_FALL_FZG : MAX_FALL, P.vy + g*dt);
   }
 
   P.amBoden = false;

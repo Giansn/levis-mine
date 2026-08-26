@@ -367,6 +367,26 @@ lies(`(()=>{const x=24, y=FUSS+40;
 pruefe('Bohrfahrzeug hebt unter Schub ab', lies('flugHoehe') > 3,
        lies('flugHoehe').toFixed(1) + ' Kacheln in 1,5 s');
 
+/* Abheben allein genuegt nicht: das Fahrzeug hob ab und war trotzdem
+   Passagier, sobald es einmal fiel. FALL_FAKT hob die Schwerkraft im Sturz auf
+   57 und damit ueber den Schub von 54 - Vollschub aenderte an vy exakt nichts.
+   Gemessen wird darum, ob der Motor einen Sturz auch wirklich auffaengt. */
+lies(`(()=>{const x = 24;
+  for (let y = FUSS+5; y < FUSS+220; y++) for (let dx=-1; dx<=1; dx++) boden[idx(x+dx,y)] = LEER;
+  S.treibstoff = 100;
+  P.x = x+0.15; P.y = FUSS+8; P.vx = 0; P.vy = 0;
+  for (let i=0;i<90;i++) aktualisiere(1/60);
+  globalThis.sturzTempo = P.vy;
+  taste.auf = true;
+  let n = 0;
+  while (P.vy > 0 && n < 300 && !P.amBoden){ aktualisiere(1/60); n++; }
+  taste.auf = false;
+  globalThis.bremsWeg = P.amBoden ? -1 : n/60;})()`);
+pruefe('Fahrzeug faellt langsamer als zu Fuss', lies('sturzTempo') <= lies('MAX_FALL_FZG'),
+       'vy ' + lies('sturzTempo').toFixed(1) + ' statt ' + lies('MAX_FALL'));
+pruefe('Motor faengt den Sturz in der Luft ab', lies('bremsWeg') > 0 && lies('bremsWeg') < 2.5,
+       lies('bremsWeg') < 0 ? 'vorher aufgesetzt' : lies('bremsWeg').toFixed(2) + ' s bis Stillstand');
+
 lies('wechsleFahrzeug()');
 
 /* -------------------------------- Berge ---------------------------------- */
