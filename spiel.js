@@ -523,6 +523,7 @@ let beben = 0;
 let aderArt = null, aderZahl = 0;   // laufende Ader fuer den Abbaubonus
 const funken = [];
 const broeckelt = [];
+let spritGewarnt = 101;   // Marke, bis zu der schon gewarnt wurde
 let arbeiterUhr = 0, einsturzUhr = 0, speicherUhr = 0, hudUhr = 0;
 
 const taste = {};
@@ -3376,6 +3377,22 @@ function aktualisiere(dt){
   funkenTick(dt);
 
   if (beben > 0) beben = Math.max(0, beben - dt*22);
+
+  /* Tankwarnung. Der rote Balken allein sieht niemand, der unten auf Levi
+     schaut. Aus vollem Tank reichen rund dreizehn Sekunden Dauerschub, ohne
+     Vorwarnung steht man tief unten. */
+  if (S.bohrer && S.imFahrzeug){
+    for (const marke of [30, 12]){
+      if (S.treibstoff <= marke && spritGewarnt > marke){
+        spritGewarnt = marke;
+        melde(marke === 12
+          ? 'Treibstoff fast leer, sofort zurück zur Basis'
+          : 'Treibstoff unter ' + marke + ', denk an den Rückweg', 'schlecht');
+        klang('kaputt');
+      }
+    }
+  }
+  if (S.treibstoff > 35) spritGewarnt = 101;      // beim Tanken wieder scharf
 
   // Zusatzarbeiter liefern ab
   arbeiterUhr += dt;

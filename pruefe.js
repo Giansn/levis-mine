@@ -629,6 +629,24 @@ pruefe('Hinter dem Vorhang tut keine Taste etwas',
   lies('document.getElementById("schleier").hidden') === true);
 lies('gesperrt = false');
 
+/* ------------------------------ Tankwarnung ------------------------------- */
+/* Der rote Balken allein sieht niemand, der unten auf Levi schaut. */
+const meldungen = () => lies(`document.getElementById('meldungen').children.length`);
+lies('S.bohrer = true; S.imFahrzeug = true; S.treibstoff = 100; spritGewarnt = 101');
+lies(`document.getElementById('meldungen').children.length = 0`);
+lies('S.treibstoff = 28');
+lies('aktualisiere(1/60)');
+pruefe('Unter dreissig warnt es', lies('spritGewarnt') === 30, 'Marke ' + lies('spritGewarnt'));
+lies('S.treibstoff = 27; aktualisiere(1/60)');
+pruefe('Aber nur einmal je Marke', lies('spritGewarnt') === 30);
+lies('S.treibstoff = 10; aktualisiere(1/60)');
+pruefe('Kurz vor leer warnt es noch einmal', lies('spritGewarnt') === 12, 'Marke ' + lies('spritGewarnt'));
+lies('S.treibstoff = 100; aktualisiere(1/60)');
+pruefe('Nach dem Tanken ist die Warnung wieder scharf', lies('spritGewarnt') === 101);
+lies('S.imFahrzeug = false; S.treibstoff = 5; spritGewarnt = 101; aktualisiere(1/60)');
+pruefe('Zu Fuss warnt der Tank nicht', lies('spritGewarnt') === 101);
+lies('S.treibstoff = 100; S.imFahrzeug = false; S.bohrer = false; spritGewarnt = 101');
+
 /* ------------------------------ Optionen --------------------------------- */
 const inhalt = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
 lies('fensterZu()');
