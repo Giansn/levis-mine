@@ -2648,34 +2648,141 @@ function zeichneBergmann(b, h, takt, laeuft){
 /* Das bestehende Bohrfahrzeug, unveraendert. Der Entwurf aus dem Faecher
    wurde nicht uebernommen: die Eigenstaendigkeitspruefung sah darin das
    bekannteste Einzelobjekt des Vorbilds nachgebildet, nicht dessen Machart. */
-function zeichneMeinFahrzeug(px, py, b, h, cx){
+/* ---------------------------- Bohrfahrzeug -------------------------------- */
+/* Eigener Entwurf: Kettenlader mit Fahrerkabine, Warnflaeche und einem Bohrkopf,
+   der in die Richtung zeigt, in die wirklich gebohrt wird. Keilform auf Ketten,
+   Stahlblau, Bohrer am beweglichen Arm. Gezeichnet im gespiegelten Rahmen wie
+   der Bergmann, damit das Licht auf der Blickseite liegt.
+   Es misst nur 24 mal 31 Bildpunkte, darum traegt die Silhouette alles. */
+let bohrWinkel = 0.42;                 // weich nachgefuehrte Lage des Arms
+let rotorWinkel = 0, rotorKraft = 0;   // Rotor faehrt hoch und wieder herunter
 
-    // Bohrfahrzeug
-    ctx.fillStyle = '#c8791f';
-    ctx.beginPath();
-    ctx.roundRect(px - 4, py - 3, b + 8, h + 2, 7);
-    ctx.fill();
-    ctx.fillStyle = '#8f5312';
-    ctx.fillRect(px - 4, py + h*0.62, b + 8, h*0.34);
-    ctx.fillStyle = '#7fd4ff';
-    ctx.beginPath(); ctx.arc(cx + P.blick*3, py + h*0.3, b*0.28, 0, 7); ctx.fill();
-    // Bohrkopf
-    ctx.fillStyle = '#d8d8e4';
-    ctx.beginPath();
-    ctx.moveTo(cx - 7, py + h + 1);
-    ctx.lineTo(cx + 7, py + h + 1);
-    ctx.lineTo(cx, py + h + 12);
-    ctx.closePath(); ctx.fill();
-    if (P.grabt){
-      ctx.strokeStyle = 'rgba(255,255,255,.5)';
-      ctx.lineWidth = 2;
-      const w = P.schwung;
-      ctx.beginPath(); ctx.arc(cx, py + h + 6, 7, w, w + 2.4); ctx.stroke();
+const MASCHINE = {
+  rumpf:'#4d5a68',  rumpfHell:'#8394a3',  rumpfDunkel:'#2f3844',
+  kabine:'#3f6270', glas:'#9ee0f5',       glasDunkel:'#4f8ba0',
+  kette:'#24212a',  kettenHell:'#4a4652',
+  warn:'#e8b830',   warnDunkel:'#7d5f10',
+  metall:'#c3cad4', metallHell:'#eef2f7', metallDunkel:'#767e8a',
+  kante:'rgba(255,244,215,.60)',
+};
+
+function zeichneMeinFahrzeug(b, h, takt, laeuft){
+  const M = MASCHINE;
+  const ruck = laeuft ? Math.sin(takt*3) * 0.5 : 0;
+
+  // Kette: flach und breit, sie gibt dem Ganzen den Stand
+  flaeche([[-0.78*b, 0.74*h], [0.72*b, 0.74*h], [0.78*b, 0.88*h],
+           [ 0.66*b, 0.99*h], [-0.72*b, 0.99*h], [-0.82*b, 0.86*h]], M.kette);
+  for (let i = 0; i < 3; i++){
+    const rx = (-0.52 + i*0.52) * b;
+    flaeche([[rx-0.13*b, 0.80*h], [rx+0.13*b, 0.80*h],
+             [rx+0.13*b, 0.94*h], [rx-0.13*b, 0.94*h]], M.kettenHell);
+  }
+  lichtLinie([[-0.74*b, 0.755*h], [0.70*b, 0.755*h]], 'rgba(255,240,210,.28)', 1.2);
+
+  // Rumpf als Keil, hinten hoch und nach vorn abfallend
+  flaeche([[-0.70*b, 0.36*h+ruck], [-0.24*b, 0.30*h+ruck], [0.62*b, 0.47*h+ruck],
+           [ 0.68*b, 0.62*h+ruck], [-0.70*b, 0.62*h+ruck]], M.rumpf);
+  flaeche([[-0.70*b, 0.55*h+ruck], [0.68*b, 0.55*h+ruck],
+           [ 0.68*b, 0.62*h+ruck], [-0.70*b, 0.62*h+ruck]], M.rumpfDunkel);
+  lichtLinie([[-0.68*b, 0.355*h+ruck], [-0.24*b, 0.305*h+ruck], [0.60*b, 0.472*h+ruck]],
+             M.kante, 1.4);
+
+  // Warnflaeche mit schraegen Streifen
+  flaeche([[-0.60*b, 0.40*h+ruck], [-0.18*b, 0.40*h+ruck],
+           [-0.18*b, 0.51*h+ruck], [-0.60*b, 0.51*h+ruck]], M.warn);
+  for (let i = 0; i < 3; i++){
+    const sx = (-0.56 + i*0.14) * b;
+    flaeche([[sx, 0.40*h+ruck], [sx+0.05*b, 0.40*h+ruck],
+             [sx-0.02*b, 0.51*h+ruck], [sx-0.07*b, 0.51*h+ruck]], M.warnDunkel);
+  }
+
+  // Kabine hinten oben, flach gehalten
+  flaeche([[-0.62*b, 0.30*h+ruck], [-0.54*b, 0.13*h+ruck],
+           [-0.08*b, 0.13*h+ruck], [ 0.02*b, 0.30*h+ruck]], M.kabine);
+  flaeche([[-0.50*b, 0.27*h+ruck], [-0.45*b, 0.165*h+ruck],
+           [-0.09*b, 0.165*h+ruck], [-0.05*b, 0.27*h+ruck]], M.glas);
+  flaeche([[-0.50*b, 0.27*h+ruck], [-0.45*b, 0.165*h+ruck],
+           [-0.30*b, 0.165*h+ruck], [-0.34*b, 0.27*h+ruck]], M.glasDunkel);
+  lichtLinie([[-0.52*b, 0.145*h+ruck], [-0.09*b, 0.145*h+ruck]], M.kante, 1.3);
+  flaeche([[-0.70*b, 0.24*h+ruck], [-0.61*b, 0.24*h+ruck],
+           [-0.61*b, 0.36*h+ruck], [-0.70*b, 0.36*h+ruck]], M.metallDunkel);
+
+  /* Rotor. Beim Steigen klappt oben ein kleiner Rotor aus. Die Blattbreite
+     schwankt mit dem Drehwinkel, das liest sich als Drehung, ohne dass einzelne
+     Blaetter noetig waeren. */
+  const schiebt = taste.auf && S.treibstoff > 0;
+  rotorKraft += ((schiebt ? 1 : 0) - rotorKraft) * 0.10;
+  rotorWinkel += 0.30 + rotorKraft * 1.5;
+  if (rotorKraft > 0.03){
+    const mx = -0.28*b, oben = -0.02*h - rotorKraft*0.06*h;
+    flaeche([[mx-0.04*b, oben+0.02*h], [mx+0.04*b, oben+0.02*h],
+             [mx+0.04*b, 0.15*h+ruck], [mx-0.04*b, 0.15*h+ruck]], M.metallDunkel);
+    const spanne = (0.14 + Math.abs(Math.cos(rotorWinkel)) * 0.86) * b;
+    ctx.globalAlpha = 0.30 + rotorKraft*0.55;
+    flaeche([[mx-spanne, oben-0.018*h], [mx+spanne, oben-0.018*h],
+             [mx+spanne, oben+0.022*h], [mx-spanne, oben+0.022*h]], M.metall);
+    ctx.globalAlpha = 1;
+    flaeche([[mx-0.06*b, oben-0.03*h], [mx+0.06*b, oben-0.03*h],
+             [mx+0.06*b, oben+0.03*h], [mx-0.06*b, oben+0.03*h]], M.metallHell);
+  }
+
+  /* Bohrarm. Ausgerichtet nach der Grabrichtung in KACHELN, nicht auf die
+     Kachelmitte: die liegt bis zu eine halbe Kachel seitlich versetzt, daraus
+     wuerden schraege 45 Grad, wo senkrecht gemeint ist. */
+  const zielK = zielKachel();
+  // Ohne Ziel die Lage halten. Beim Graben nach unten faellt das Fahrzeug
+  // staendig in das eben gegrabene Loch, dann ist kurz nichts Festes darunter.
+  // Eine Ruhelage waere hier ein staendiges Hin und Her.
+  let wunsch = bohrWinkel;
+  if (zielK){
+    const sp = P.blick < 0 ? -1 : 1;
+    const dx = Math.sign(zielK[0] - Math.floor(P.x + P.b/2)) * sp;
+    const dy = Math.sign(zielK[1] - Math.floor(P.y + P.h/2));
+    if (dx || dy) wunsch = Math.atan2(dy, dx);
+  }
+  let dw = wunsch - bohrWinkel;
+  while (dw >  Math.PI) dw -= Math.PI*2;
+  while (dw < -Math.PI) dw += Math.PI*2;
+  bohrWinkel += dw * 0.25;
+
+  /* Beim Bohren nach unten sitzt der Kopf UNTER dem Fahrzeug, nicht davor.
+     Der Drehpunkt wandert darum mit dem Winkel vom Bug unter den Rumpf, und
+     der Arm zieht sich dabei ein. */
+  const abwaerts = Math.max(0, Math.sin(bohrWinkel));
+  ctx.save();
+  ctx.translate(0.20*b*(1-abwaerts) + (-0.04*b)*abwaerts,
+                0.50*h*(1-abwaerts) +   0.76*h *abwaerts + ruck);
+  ctx.rotate(bohrWinkel);
+
+  const armL = 0.26*b * (1 - abwaerts*0.8);
+  flaeche([[0, -0.10*h], [armL, -0.09*h], [armL, 0.09*h], [0, 0.10*h]], M.metallDunkel);
+  if (armL > 0.10*b) lichtLinie([[0.03*b, -0.085*h], [armL-0.02*b, -0.075*h]], M.kante, 1.2);
+  flaeche([[-0.10*b, -0.11*h], [0.10*b, -0.11*h],
+           [ 0.10*b,  0.11*h], [-0.10*b, 0.11*h]], M.rumpfDunkel);
+
+  // Bohrkopf, gross genug um die Silhouette zu tragen
+  const s0 = armL - 0.04*b, spitze = s0 + 0.92*b, halb = 0.34*h;
+  flaeche([[s0, -halb], [spitze, 0], [s0, halb]], M.metall);
+  flaeche([[s0, -halb], [spitze, 0], [s0 + 0.22*b, 0]], M.metallHell);
+  flaeche([[s0,  halb], [spitze, 0], [s0 + 0.22*b, 0]], M.metallDunkel);
+  for (let i = 1; i <= 2; i++){
+    const t = i/3;
+    lichtLinie([[s0 + (spitze-s0)*t, -halb*(1-t)], [s0 + (spitze-s0)*t, halb*(1-t)]],
+               'rgba(40,44,52,.55)', 1.3);
+  }
+  lichtLinie([[s0, -halb], [spitze, 0]], M.kante, 1.3);
+
+  if (P.grabt){
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.lineWidth = 1.7;
+    for (let i = 0; i < 2; i++){
+      ctx.beginPath();
+      ctx.arc(s0 + 0.30*b, 0, 0.26*b + i*0.14*b, P.schwung + i*2, P.schwung + i*2 + 1.8);
+      ctx.stroke();
     }
-    // Rader
-    ctx.fillStyle = '#26222c';
-    ctx.beginPath(); ctx.arc(px + 2, py + h - 1, 5, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(px + b - 2, py + h - 1, 5, 0, 7); ctx.fill();
+  }
+  ctx.restore();
 }
 
 function zeichneLevi(){
@@ -2692,15 +2799,12 @@ function zeichneLevi(){
 
   // Alles wird nach rechts gezeichnet und fuer den Blick nach links gespiegelt.
   // So liegt das Licht immer auf der Seite, in die Levi schaut.
-  if (S.imFahrzeug){
-    zeichneMeinFahrzeug(px, py, b, h, cx);      // rechnet in absoluten Koordinaten
-  } else {
-    ctx.save();
-    ctx.translate(cx, py);
-    ctx.scale(P.blick < 0 ? -1 : 1, 1);
-    zeichneBergmann(b, h, takt, laeuft);
-    ctx.restore();
-  }
+  ctx.save();
+  ctx.translate(cx, py);
+  ctx.scale(P.blick < 0 ? -1 : 1, 1);
+  if (S.imFahrzeug) zeichneMeinFahrzeug(b, h, takt, laeuft);
+  else              zeichneBergmann(b, h, takt, laeuft);
+  ctx.restore();
 }
 
 function zeichneDunkelheit(){
