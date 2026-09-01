@@ -52,6 +52,21 @@ zeitLimit(0)          // Limit abschalten
 zeitLimit()           // zeigt das geltende Limit
 ```
 
+## Karte zurücksetzen
+
+Würfelt den Berg neu aus, ohne den Fortschritt anzutasten. Gold, Werkzeuge,
+Ausrüstung, Arbeiter und die geöffneten Berge bleiben; weg sind der gegrabene
+Stollen, gesetzte Balken und Schienen, das gesetzte Portal und das, was Levi
+schon gesehen hat.
+
+```js
+karteZuruecksetzen()       // den Berg, auf dem Levi gerade steht
+karteZuruecksetzen(true)   // alle Berge auf einmal
+```
+
+Bewusst nur in der Konsole und nicht im Spiel: ein Berg voll frischem Erz auf
+Knopfdruck wäre der kürzeste Weg an jeder Anstrengung vorbei.
+
 Das hält ein Kind auf, das einfach weiterspielen will. Wer die Konsole selbst
 öffnet oder den Browserspeicher löscht, kommt daran vorbei. Ohne Server lässt
 sich das nicht ändern.
@@ -68,6 +83,7 @@ sich das nicht ändern.
 | R | Schiene legen |
 | F | Dynamit zünden |
 | L | Seilwinde, zieht dich zur Basis |
+| T | Portal setzen, an der Basis dorthin reisen |
 | E | Minenwagen heimschicken |
 | V | ins Bohrfahrzeug steigen |
 | K M H | Laden, Berge, Hilfe |

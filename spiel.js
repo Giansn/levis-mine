@@ -439,6 +439,9 @@ const LADEN = [
    text:'Schickt die Ladung über die Schienen heim. Fracht +25.', preis:{gold:50}},
   {id:'bohrer', art:'einmal', name:'Bohrfahrzeug', stufe:1, verdient:200,
    text:'Bohrt jedes Gestein, fliegt mit Schub, Fracht +35.', preis:{gold:100}},
+  {id:'portal', art:'einmal', name:'Portalstein', stufe:2,
+   text:'Setz ihn mit T tief im Berg. An der Basis bringt dich T dann sofort wieder dorthin, '
+      + 'ohne den ganzen Weg noch einmal zu graben.', preis:{gold:75}},
 ];
 
 const STUFEN = [0, 150, 400, 900, 1800, 3200, 5000];
@@ -512,6 +515,7 @@ const S = {
   wagen:false, bohrer:false, imFahrzeug:false, lampe:0,
   gekauft:['schaufel','pickel'],
   treibstoff:100, leben:100,
+  portal:false, portale:{},        // gekauft, und je Berg die gesetzte Stelle
   tiefstes:0, funk:[], gewonnen:false, ton:true,
 };
 
@@ -761,6 +765,60 @@ function ladeWelt(nr){
   kamera.x = z.x; kamera.y = z.y;   // geklemmt, sonst zeigt das erste Bild neben die Welt
 }
 
+/* Eine Schatztruhe im Fels: Holzkoerper, gewoelbter Deckel, zwei Eisenbaender
+   und ein Schloss. Gezeichnet statt als Bild gespeichert, es sind nur wenige
+   je Berg. Der Streuwert kippt sie leicht, damit nicht alle gleich stehen. */
+function zeichneTruhe(px, py, streu){
+  const m = K*0.10, b = K - 2*m, x0 = px + m, y0 = py + m;
+  const deckel = b*0.40, koerper = b - deckel;
+  ctx.save();
+  ctx.translate(x0 + b/2, y0 + b/2);
+  ctx.rotate((streu - 0.5) * 0.22);
+  ctx.translate(-b/2, -b/2);
+
+  ctx.fillStyle = '#3a2416';                       // Schatten unter der Truhe
+  ctx.fillRect(-b*0.04, b*0.94, b*1.08, b*0.10);
+
+  ctx.fillStyle = '#6b4526';                       // Korpus
+  ctx.fillRect(0, deckel, b, koerper);
+  ctx.fillStyle = '#4e3119';                       // untere Haelfte dunkler
+  ctx.fillRect(0, deckel + koerper*0.55, b, koerper*0.45);
+
+  ctx.fillStyle = '#7d5230';                       // gewoelbter Deckel
+  ctx.beginPath();
+  ctx.moveTo(0, deckel);
+  ctx.quadraticCurveTo(b/2, -deckel*0.55, b, deckel);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,225,175,.28)';         // Glanz auf dem Deckel
+  ctx.beginPath();
+  ctx.moveTo(b*0.12, deckel*0.86);
+  ctx.quadraticCurveTo(b*0.44, -deckel*0.18, b*0.62, deckel*0.62);
+  ctx.quadraticCurveTo(b*0.40, deckel*0.20, b*0.12, deckel*0.86);
+  ctx.fill();
+
+  // Die Baender folgen dem Umriss. Ohne den Beschnitt standen sie seitlich
+  // ueber die Deckelwoelbung hinaus und die Truhe bekam zwei Hoerner.
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, deckel);
+  ctx.quadraticCurveTo(b/2, -deckel*0.55, b, deckel);
+  ctx.lineTo(b, b); ctx.lineTo(0, b);
+  ctx.closePath();
+  ctx.clip();
+  ctx.fillStyle = '#2f2a26';                       // Eisenbaender
+  ctx.fillRect(b*0.16, 0, b*0.10, b);
+  ctx.fillRect(b*0.74, 0, b*0.10, b);
+  ctx.fillRect(0, deckel - b*0.05, b, b*0.09);
+  ctx.restore();
+
+  ctx.fillStyle = '#e0b23c';                       // Schloss
+  ctx.fillRect(b*0.42, deckel - b*0.09, b*0.17, b*0.24);
+  ctx.fillStyle = '#4a3a12';
+  ctx.fillRect(b*0.48, deckel + b*0.01, b*0.05, b*0.09);
+  ctx.restore();
+}
+
 /* Wohin die Kamera gehoert, innerhalb der Weltgrenzen */
 function kameraZiel(){
   return {
@@ -894,7 +952,8 @@ function tastenDruck(e){
   // Leertaste und B tun dasselbe. Das Zeichen ␣ in der Leiste liest kein Kind,
   // darum steht dort jetzt B - die Leertaste bleibt fuer alle, die sie kennen.
   if (z === ' ' || e.key === ' ' || z === 'b'){ setzeBalken(); e.preventDefault(); return; }
-  if (z === 'r') legeSchiene();
+  if (z === 't') nutzePortal();
+  else if (z === 'r') legeSchiene();
   else if (z === 'f') zuendeDynamit();
   else if (z === 'v') wechsleFahrzeug();
   else if (z === 'e') sendeWagen();
@@ -1428,6 +1487,43 @@ function nutzeSeilwinde(){
   const z = kameraZiel(); kamera.x = z.x; kamera.y = z.y;
   klang('wagen');
   melde('Die Seilwinde zieht dich hoch, ' + S.seilwinde + ' übrig', 'gut');
+}
+
+/* Das Gegenstueck zur Seilwinde. Die zieht hoch, das Portal bringt zurueck
+   nach unten. Eine Taste, zwei eindeutige Faelle: an der Basis reist Levi,
+   ueberall sonst setzt er das Portal an seine Stelle. Damit gibt es nichts zu
+   verwechseln und keinen zweiten Tastendruck zu lernen. */
+function nutzePortal(){
+  if (!S.portal){ melde('Du hast noch keinen Portalstein, es gibt ihn im Laden', 'schlecht'); return; }
+  const ziel = S.portale[S.bergNr];
+
+  if (anBasis()){
+    if (!ziel){
+      melde('Setz das Portal erst unten im Berg, mit T', 'schlecht');
+      return;
+    }
+    /* Zu Fuss reisen, wie bei der Seilwinde. Das Fahrzeug ist breiter und
+       hoeher als Levi und wuerde in einem engen Schacht im Fels stecken. */
+    S.imFahrzeug = false;
+    const [zx, zy] = ziel;
+    // Ein Einsturz kann die Stelle inzwischen verschuettet haben. Statt Levi
+    // im Fels abzusetzen oder ihn abzuweisen, raeumt das Portal seinen Platz.
+    for (const dy of [0, -1]) if (fest(zx, zy+dy)) boden[idx(zx, zy+dy)] = LEER;
+    P.x = zx + 0.5 - P.b/2; P.y = zy + 1 - P.h; P.vx = 0; P.vy = 0;
+    P.zx = P.zy = -1; P.fortschritt = 0;
+    const k = kameraZiel(); kamera.x = k.x; kamera.y = k.y;
+    klang('wagen');
+    melde('Durch das Portal, ' + Math.round((zy + 1 - FUSS) * METER) + ' m tief', 'gut');
+    hud(); speichere();
+    return;
+  }
+
+  const fx = Math.floor(P.x + P.b/2), fy = Math.floor(P.y + P.h - 0.01);
+  S.portale[S.bergNr] = [fx, fy];
+  klang('kaufen');
+  staub(fx + 0.5, fy + 0.5, 14, '#9ee0f5');
+  melde('Portal gesetzt. An der Basis bringt dich T wieder hierher', 'gold');
+  hud(); speichere();
 }
 
 function wechsleFahrzeug(){
@@ -2937,10 +3033,14 @@ function zeichne(){
       // traegt der Untergrund seiner eigenen Art, das laesst keine Kachel stehen.
       const zTyp = typ === GAS ? tarnung(y) : typ;
       const gg = GESTEIN[zTyp];
-      if (gg.erz || gg.schatz){
+      if (gg.erz){
         const bilder = kachelBild[zTyp];
         if (bilder) ctx.drawImage(bilder[(hash(x,y)*VARIANTEN)|0], px, py);
       }
+      // Das Fundstueck war bisher ein dunkler Fleck wie jedes Erz und damit
+      // im Gestein kaum zu sehen. Eine Truhe erkennt ein Kind sofort, und das
+      // Finden wird zum Ereignis statt zum Zufall am Wegrand.
+      else if (gg.schatz) zeichneTruhe(px, py, hash(x*11, y*5));
       // Erdkamm auf jede freiliegende Oberkante. Die Zeile darueber ist
       // bereits gezeichnet, darum genuegt ein Durchgang. Bricht die Treppe
       // der Bergflanke und laesst Stollenboeden gegraben aussehen.
@@ -3111,6 +3211,7 @@ function hud(){
     ['Seilwinde', S.seilwinde, 'L'],
     ['Lampe', (S.lampe+1) + '/' + LAMPEN.length, 'K'],
     ['Fahrzeug', S.bohrer ? (S.imFahrzeug ? 'AN' : 'aus') : '–', 'V'],
+    ['Portal', S.portal ? (S.portale[S.bergNr] ? 'gesetzt' : 'frei') : '–', 'T'],
   ].map(([n, v, t]) => `<div class="vorratKarte ${v === 0 || v === '–' ? 'null' : ''}"><b>${v}</b>${n} <kbd>${t}</kbd></div>`).join('');
 }
 
@@ -3325,6 +3426,7 @@ function zeigeHilfe(){
       <tr><td>Schiene legen</td><td><kbd>R</kbd></td></tr>
       <tr><td>Dynamit zünden</td><td><kbd>F</kbd></td></tr>
       <tr><td>Seilwinde, zieht dich zur Basis</td><td><kbd>L</kbd></td></tr>
+      <tr><td>Portal setzen und benutzen</td><td><kbd>T</kbd></td></tr>
       <tr><td>Minenwagen heimschicken</td><td><kbd>E</kbd></td></tr>
       <tr><td>Ins Bohrfahrzeug steigen</td><td><kbd>V</kbd></td></tr>
       <tr><td>Laden, Berge, Hilfe</td><td><kbd>K</kbd><kbd>M</kbd><kbd>H</kbd></td></tr>
@@ -3344,6 +3446,12 @@ function zeigeHilfe(){
         An ihnen kletterst du mit <kbd>▲</kbd> und <kbd>▼</kbd> hoch und runter. Schienen taugen auch dazu.</td></tr>
       <tr><td>Seilwinde</td><td>Steckst du fest, zieht dich <kbd>L</kbd> samt Ladung sofort zur Basis.
         Zwei hast du dabei, weitere kosten 14 Goldstücke.</td></tr>
+      <tr><td>Portalstein</td><td>Das Gegenstück zur Seilwinde: die zieht dich hoch, das Portal bringt dich
+        zurück nach runter. Drück tief im Berg <kbd>T</kbd>, dann steht dort dein Portal. An der Basis
+        bringt dich <kbd>T</kbd> sofort wieder dorthin, ohne den ganzen Weg noch einmal zu graben.
+        Ein Portal je Berg, du kannst es jederzeit woanders hinsetzen.</td></tr>
+      <tr><td>Schatztruhen</td><td>Ganz tief unten stehen alte Truhen im Fels. Sie sind hart,
+        aber jede bringt 400 Goldstücke.</td></tr>
       <tr><td>Zu hartes Gestein</td><td>Bricht eine Kachel nicht, grab seitlich daran vorbei,
         statt im Schacht stehen zu bleiben.</td></tr>
     </table>
@@ -3752,6 +3860,27 @@ window.spielPasswort = function(wort){
     try { localStorage.setItem(SPIEL_PW, JSON.stringify({salz, hash})); } catch(e){}
     return 'Wort gesetzt. Beim nächsten Laden kommt die Maske.';
   });
+};
+
+/* karteZuruecksetzen()      wuerfelt den Berg neu, auf dem Levi gerade steht
+   karteZuruecksetzen(true)  alle Berge auf einmal
+   Der Fortschritt bleibt: Gold, Werkzeuge, Ausruestung, Arbeiter und die
+   geoeffneten Berge ruehrt das nicht an. Weg sind der gegrabene Stollen,
+   gesetzte Balken und Schienen und das, was Levi schon gesehen hat - eben
+   die Karte. Bewusst hier und nicht im Spiel: ein Berg voll frischem Erz auf
+   Knopfdruck waere sonst der kuerzeste Weg an jeder Anstrengung vorbei. */
+window.karteZuruecksetzen = function(alle){
+  const nr = S.bergNr;
+  // Das gesetzte Portal zeigt sonst mitten in frischen Fels.
+  if (alle){ for (const k in welten) delete welten[k]; S.portale = {}; }
+  else { delete welten[nr]; delete S.portale[nr]; }
+  ladeWelt(nr);
+  hud(); speichere();
+  klang('wagen');
+  melde(alle ? 'Alle Berge sind neu' : 'Der Berg ist neu', 'gold');
+  return alle
+    ? 'Alle Berge neu ausgewuerfelt, der Fortschritt bleibt'
+    : BERGE[nr].name + ' neu ausgewuerfelt, der Fortschritt bleibt';
 };
 
 window.zeitLimit = function(minuten){

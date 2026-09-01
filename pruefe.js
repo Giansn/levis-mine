@@ -389,6 +389,70 @@ pruefe('Motor faengt den Sturz in der Luft ab', lies('bremsWeg') > 0 && lies('br
 
 lies('wechsleFahrzeug()');
 
+/* ------------------------- Portal und Schatztruhen ------------------------ */
+lies('S.gold = 300; S.verdient = 900; S.portal = false; S.portale = {}');
+pruefe('Portalstein steht im Laden', lies(`ladenListe().some(w => w.id === 'portal')`) === true);
+lies(`kaufe('portal')`);
+pruefe('Portalstein gekauft', lies('S.portal') === true, 'Gold ' + lies('S.gold'));
+
+/* Levi gräbt sich runter, setzt das Portal, faehrt hoch und kommt zurueck.
+   Genau dafuer ist der Stein da: den Weg nicht zweimal graben. */
+lies(`(()=>{ for (let dy = 0; dy < 40; dy++) boden[idx(BASIS_X+4, FUSS+dy)] = LEER;
+  P.x = BASIS_X + 4.15; P.y = FUSS + 38; P.vx = 0; P.vy = 0;
+  for (let i = 0; i < 60; i++) aktualisiere(1/60);
+  globalThis.portalTiefe = Math.round((P.y + P.h - FUSS) * METER);
+  nutzePortal(); })()`);
+pruefe('Portal laesst sich unten setzen', Array.isArray(lies('S.portale[S.bergNr]')),
+       JSON.stringify(lies('S.portale')));
+lies('nutzeSeilwinde()');
+pruefe('Seilwinde bringt ihn erst hoch', lies('anBasis()') === true);
+lies('nutzePortal()');
+pruefe('Das Portal bringt ihn wieder hinunter',
+       Math.round(lies('(P.y + P.h - FUSS) * METER')) === lies('portalTiefe'),
+       lies('portalTiefe') + ' m');
+pruefe('Und er steckt dort nicht im Fels',
+       lies('fest(Math.floor(P.x + P.b/2), Math.floor(P.y + P.h - 0.01))') === false);
+
+/* Ein Einsturz kann die Stelle verschuetten. Das Portal muss dann seinen
+   Platz raeumen, sonst setzt es Levi mitten in den Fels. */
+lies('nutzeSeilwinde()');
+lies(`(()=>{ const [zx,zy] = S.portale[S.bergNr];
+  boden[idx(zx,zy)] = FELS; boden[idx(zx,zy-1)] = FELS; nutzePortal(); })()`);
+pruefe('Ein verschuettetes Portal raeumt seinen Platz',
+       lies('fest(Math.floor(P.x + P.b/2), Math.floor(P.y + P.h - 0.01))') === false);
+
+/* Karte zuruecksetzen: der Berg ist neu, der Fortschritt bleibt. */
+lies('nutzeSeilwinde()');
+lies(`(()=>{ S.gold = 512; S.arbeiter = 3; S.werkzeuge.pickel = 77; S.verdient = 4242;
+  bau[idx(BASIS_X+4, FUSS+3)] = 1; gesehen[idx(BASIS_X+4, FUSS+3)] = 1; })()`);
+lies('window.karteZuruecksetzen()');
+pruefe('Kartenruecksetzung fuellt den Stollen wieder',
+       lies(`(()=>{ let n=0; for (let dy=0; dy<40; dy++)
+         if (boden[idx(BASIS_X+4, FUSS+dy)] === LEER) n++; return n; })()`) < 40);
+pruefe('Balken und Gesehenes sind weg',
+       lies(`bau[idx(BASIS_X+4, FUSS+3)]`) === 0 && lies(`gesehen[idx(BASIS_X+4, FUSS+3)]`) === 0);
+pruefe('Der Fortschritt bleibt dabei unangetastet',
+       lies('S.gold') === 512 && lies('S.arbeiter') === 3
+       && lies('S.werkzeuge.pickel') === 77 && lies('S.verdient') === 4242);
+pruefe('Das gesetzte Portal wird mitgeloescht',
+       lies('S.portale[S.bergNr]') === undefined);
+
+/* Truhen: Anzahl und Tiefe sind der Reiz. Liegen sie zu weit oben, ist der
+   Fund kein Ereignis mehr; liegen sie zu tief, sieht sie nie jemand. */
+const tiefsteMeter = lies('TIEFEN * METER');
+const truhen = lies(`(()=>{ const t = [];
+  for (let i = 0; i < boden.length; i++) if (boden[i] === SCHATZ)
+    t.push(Math.round((Math.floor(i/BREITE) - FUSS) * METER));
+  return t; })()`);
+pruefe('Sechs Schatztruhen je Berg', truhen.length === 6, truhen.length + ' Stueck');
+pruefe('Alle Truhen liegen im untersten Drittel',
+       Math.min(...truhen) > tiefsteMeter/2 && Math.max(...truhen) < tiefsteMeter,
+       Math.min(...truhen) + ' bis ' + Math.max(...truhen) + ' m');
+try { lies(`(()=>{ const t = S.lampe; S.lampe = 3;
+  boden[idx(BASIS_X+3, FUSS+2)] = SCHATZ; zeichne(); S.lampe = t; })()`);
+      pruefe('Eine Truhe laesst sich zeichnen', true); }
+catch (e){ pruefe('Eine Truhe laesst sich zeichnen', false, e.message); }
+
 /* -------------------------------- Berge ---------------------------------- */
 lies('S.gold = 5000; S.verdient = 5000');
 try { lies('wechsleBerg(1)'); } catch (e){ fehler.push('wechsleBerg: ' + e.stack); }
