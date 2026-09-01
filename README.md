@@ -17,7 +17,7 @@ Entwicklerkonsole mit `neuAnfangen()`.
 
 ## Vor dem Spiel
 
-Beim Laden kommt eine Maske mit einem Wort. Eingebaut ist **`Passwort`**,
+Beim Laden kommt eine Maske mit einem Passwort. Eingebaut ist **`Bergmine Höfen`**,
 Gross- und Kleinschreibung und zusätzliche Leerzeichen spielen keine Rolle.
 
 Das ist ein Vorhang, kein Schloss: die Seite samt Prüfung wird geladen, bevor
@@ -41,9 +41,21 @@ Die Uhr läuft **nicht** mit dem Datum ab. Ein Tageswechsel würde sie von selbs
 freigeben, und die Systemuhr vorzustellen ist kein Kunststück. Frei gibt sie
 allein `zeitZuruecksetzen()`.
 
-Bewusst gibt es dafür **keinen Bereich im Spiel**: was das Kind sehen kann,
-kann es auch bedienen. Gesteuert wird über die Entwicklerkonsole, `F12` und
-dann Konsole:
+Ist die Zeit um, steht im Sperrfenster ein Passwortfeld. Es gilt **dasselbe
+Wort wie beim Vorhang**, damit lässt sich die Zeit direkt am Gerät freigeben,
+ohne Konsole und ohne Netz.
+
+> **Das Kind kennt dieses Wort.** Es tippt es bei jedem Start selbst ein und
+> kann sich damit auch die Zeit freigeben. Wer das nicht will, gibt der
+> Zeitsperre in der Konsole ein eigenes Wort:
+>
+> ```js
+> zeitPasswort('elternwort')   // nur für die Zeitsperre
+> zeitPasswort('')             // zurück zum Vorhangwort
+> zeitPasswort()               // sagt, was gilt
+> ```
+
+Weiteres wird über die Entwicklerkonsole gesteuert, `F12` und dann Konsole:
 
 ```js
 zeitZuruecksetzen()   // heutige Spielzeit auf null, es geht sofort weiter

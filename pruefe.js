@@ -988,6 +988,41 @@ function bericht(){
 
     await lies("window.spielPasswort('')");
     pruefe('Der Vorhang laesst sich wieder entfernen', lies('pwDaten()') === null);
+
+    /* Freigabe der Spielzeit am Geraet selbst, mit demselben Wort. Vorher ging
+       das nur ueber die Konsole oder die Datei im Netz. */
+    lies("localStorage.removeItem(ZEIT_PW)");
+    lies('window.zeitLimit(20); zeitStand = {sekunden: 99999, gewarnt: 0}; zeigeZeitEnde()');
+    pruefe('Das Sperrfenster fragt nach dem Passwort',
+      lies(`document.getElementById('fensterInhalt').innerHTML`).includes('zeitFeld2'));
+    pruefe('Ein falsches Wort gibt die Zeit nicht frei',
+      (await lies(`zeitFreigeben('sesam')`)) === false && lies('zeitStand.sekunden') === 99999);
+    pruefe('Das Vorhangwort gibt die Zeit frei',
+      (await lies('zeitFreigeben(STANDARD_WORT)')) === true && lies('zeitStand.sekunden') === 0);
+    pruefe('Danach ist das Sperrfenster zu',
+      lies('document.getElementById("schleier").hidden') === true);
+
+    /* Levi tippt das Vorhangwort bei jedem Start selbst, kennt es also. Wer die
+       Zeit vor ihm schuetzen will, gibt der Sperre ein eigenes Wort. */
+    await lies("window.zeitPasswort('elternwort')");
+    lies('zeitStand = {sekunden: 99999, gewarnt: 0}; zeigeZeitEnde()');
+    pruefe('Mit eigenem Zeitwort zaehlt das Vorhangwort dort nicht mehr',
+      (await lies('zeitFreigeben(STANDARD_WORT)')) === false);
+    pruefe('Das eigene Zeitwort gibt frei',
+      (await lies(`zeitFreigeben('ELTERNWORT')`)) === true, 'Gross und klein egal');
+    lies('gesperrt = true');
+    pruefe('Der Vorhang behaelt dabei sein eigenes Wort',
+      (await lies('aufschliessen(STANDARD_WORT)')) === true);
+    await lies("window.zeitPasswort('')");
+    pruefe('Das Zeitwort laesst sich wieder entfernen', lies('pwDaten(ZEIT_PW)') === null);
+
+    /* Wegklicken darf keine Luecke lassen: das Fenster muss von selbst
+       zurueckkommen, sonst spielt das Kind einfach weiter. */
+    lies('zeitStand = {sekunden: 99999, gewarnt: 0}; zeigeZeitEnde(); fensterZu()');
+    lies('zeitTicken(1/60)');
+    pruefe('Weggeklickt kommt das Sperrfenster sofort zurueck',
+      lies('document.getElementById("schleier").hidden') === false);
+    lies('zeitStand = {sekunden: 0, gewarnt: 0}; zeitEndeSteht = false; fensterZu()');
     /* Der eigentliche Punkt: die Uhr haengt am Geraet, nicht am Spielstand.
        Sonst gaebe ein neuer Name auf dem Startbildschirm frische Minuten. */
     lies('zeitStand.sekunden = 600; zeitSichern()');

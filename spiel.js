@@ -92,7 +92,8 @@ const BERGE = [
    auf, der einfach spielen will, und niemanden sonst. Gesetzt wird sie ueber
    spielPasswort() in der Entwicklerkonsole, ohne Passwort erscheint sie nicht. */
 const SPIEL_PW = 'levisMine.pw';
-const STANDARD_WORT = 'Passwort';   // gilt, solange keines gesetzt wurde
+const ZEIT_PW  = 'levisMine.zeitpw';      // eigenes Wort nur fuer die Zeitsperre
+const STANDARD_WORT = 'Bergmine Höfen';   // gilt, solange keines gesetzt wurde
 let gesperrt = false;
 let ersterStart = false;   // beim ersten Besuch nach dem Vorhang die Hilfe zeigen
 
@@ -100,9 +101,26 @@ let ersterStart = false;   // beim ersten Besuch nach dem Vorhang die Hilfe zeig
    ueber Erfolg entscheiden, ein Kind tippt das sonst dreimal falsch. */
 const wortForm = w => (w || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
-const pwDaten = () => {
-  try { return JSON.parse(localStorage.getItem(SPIEL_PW)) || null; } catch(e){ return null; }
+const pwDaten = (schluessel = SPIEL_PW) => {
+  try { return JSON.parse(localStorage.getItem(schluessel)) || null; } catch(e){ return null; }
 };
+
+/* Ein Wort gegen eine gespeicherte Streuung pruefen, sonst gegen das
+   eingebaute. Vorhang und Zeitsperre fragen beide hier an, damit es nur eine
+   Stelle gibt, an der ueber richtig und falsch entschieden wird. */
+function wortStimmt(wort, schluessel){
+  const d = pwDaten(schluessel);
+  if (!d) return Promise.resolve(wortForm(wort) === wortForm(STANDARD_WORT));
+  return Promise.all([streuwert(wortForm(wort), d.salz), streuwert(wort || '', d.salz)])
+    .then(([sauber, roh]) => sauber === d.hash || roh === d.hash);
+}
+
+/* Die Zeitsperre nimmt dasselbe Wort wie der Vorhang, solange fuer sie keines
+   eigenes gesetzt ist. Das ist so gewollt und hat einen Preis: Levi tippt das
+   Vorhangwort bei jedem Start selbst, er kennt es also. Wer die Zeit vor ihm
+   schuetzen will, gibt der Sperre mit zeitPasswort() ein eigenes Wort. */
+const zeitWortStimmt = wort =>
+  wortStimmt(wort, pwDaten(ZEIT_PW) ? ZEIT_PW : SPIEL_PW);
 
 /* Auch fuer einen Vorhang gehoert das Wort nicht im Klartext in den Speicher.
    In einem sicheren Kontext rechnet der Browser, aus einer lokalen Datei heraus
@@ -120,12 +138,12 @@ async function streuwert(text, salz){
 
 function zeigeSchloss(fehlversuch){
   fenster('Levis Mine', `
-    <p class="hinweis">Gib das Wort ein, dann geht es los.</p>
-    ${fehlversuch ? '<div class="gefahr">Das war nicht das richtige Wort.</div>' : ''}
+    <p class="hinweis">Gib das Passwort ein, dann geht es los.</p>
+    ${fehlversuch ? '<div class="gefahr">Das war nicht das richtige Passwort.</div>' : ''}
     <div class="gitter">
       <div class="ware">
-        <div class="kopf2"><b>Wort</b></div>
-        <input id="schlossFeld" type="password" maxlength="40" placeholder="Wort"
+        <div class="kopf2"><b>Passwort</b></div>
+        <input id="schlossFeld" type="password" maxlength="40" placeholder="Passwort"
                style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
                       border:2px solid var(--kante);font:inherit;font-size:15px">
         <button class="kauf" data-tat="aufschliessen">Aufschliessen</button>
@@ -141,19 +159,7 @@ function zeigeSchloss(fehlversuch){
 }
 
 function aufschliessen(wort){
-  const d = pwDaten();
-  // Ohne eigenes Wort gilt das eingebaute. Der Vergleich laeuft dann direkt,
-  // damit er aus einer lokalen Datei genauso funktioniert wie im Netz.
-  // Das eingebaute Wort war von Anfang an nachsichtig, ein selbst gesetztes
-  // nicht: gestreut wurde die rohe Eingabe. Wer 'Baggerloch' setzte, kam mit
-  // 'baggerloch' nicht mehr hinein - entgegen dem, was README und die Maske
-  // versprechen. Gestreut wird darum die aufgeraeumte Form. Der zweite
-  // Vergleich nimmt ein Wort an, das noch nach der alten Art abgelegt wurde.
-  const geprueft = d
-    ? Promise.all([streuwert(wortForm(wort), d.salz), streuwert(wort || '', d.salz)])
-        .then(([sauber, roh]) => sauber === d.hash || roh === d.hash)
-    : Promise.resolve(wortForm(wort) === wortForm(STANDARD_WORT));
-  return geprueft.then(passt => {
+  return wortStimmt(wort, SPIEL_PW).then(passt => {
     if (!passt){ zeigeSchloss(true); return false; }
     gesperrt = false;
     fensterZu();
@@ -268,11 +274,48 @@ function zeitTicken(dt){
 function zeigeZeitEnde(){
   zeitEndeSteht = true;   // damit eine Fernfreigabe das Fenster schliessen kann
   speichere();
+  zeigeZeitFenster();
+}
+
+/* Das Sperrfenster, mit Feld fuer die Freigabe an Ort und Stelle. Vorher ging
+   das nur ueber die Entwicklerkonsole oder die Datei im Netz - beides nichts,
+   was man neben dem Kind sitzend eben schnell macht. */
+function zeigeZeitFenster(fehlversuch){
   fenster('Für heute ist Schluss', `
     <p class="hinweis">Deine ${limitMinuten()} Minuten sind aufgebraucht.</p>
     <p>Dein Berg bleibt genau so, wie er jetzt ist, mit ${zahl(S.gold)} Goldstücken
     und ${S.tiefstes} Metern als tiefstem Punkt. Es geht weiter, sobald jemand
-    die Zeit wieder freigibt.</p>`);
+    die Zeit wieder freigibt.</p>
+    ${fehlversuch ? '<div class="gefahr">Das war nicht das richtige Passwort.</div>' : ''}
+    <div class="gitter">
+      <div class="ware">
+        <div class="kopf2"><b>Passwort</b><span>für Erwachsene</span></div>
+        <input id="zeitFeld2" type="password" maxlength="40" placeholder="Passwort"
+               style="width:100%;padding:8px;background:var(--platte-tief);color:var(--schrift);
+                      border:2px solid var(--kante);font:inherit;font-size:15px">
+        <button class="kauf" data-tat="zeitFrei">Zeit freigeben</button>
+      </div>
+    </div>`);
+  const feld = document.getElementById('zeitFeld2');
+  if (feld){
+    setTimeout(() => feld.focus(), 30);
+    feld.addEventListener('keydown', e => { if (e.key === 'Enter') tueEs('zeitFrei'); });
+  }
+}
+
+/* Freigabe am Geraet selbst. Dieselben Minuten wie bei zeitZuruecksetzen(),
+   nur ohne Konsole. */
+function zeitFreigeben(wort){
+  return zeitWortStimmt(wort).then(passt => {
+    if (!passt){ zeigeZeitFenster(true); return false; }
+    zeitStand = {sekunden: 0, gewarnt: 0};
+    zeitSichern();
+    zeitEndeSteht = false;
+    fensterZu(); hud();
+    klang('muenze');
+    melde('Die Zeit ist wieder freigegeben, ' + limitMinuten() + ' Minuten', 'gold');
+    return true;
+  });
 }
 
 /* ---------------------------- Spielerauswahl ----------------------------- */
@@ -397,6 +440,10 @@ function tueEs(tat){
   else if (tat === 'neu') zeigeOptionen(true);      // erst nachfragen
   else if (tat === 'neuJa') neuAnfangen();
   else if (tat === 'wechseln') zeigeAnmeldung();
+  else if (tat === 'zeitFrei'){
+    const feld = document.getElementById('zeitFeld2');
+    zeitFreigeben(feld ? feld.value : '');
+  }
   else if (tat === 'aufschliessen'){
     const feld = document.getElementById('schlossFeld');
     aufschliessen(feld ? feld.value : '');
@@ -3881,6 +3928,27 @@ window.karteZuruecksetzen = function(alle){
   return alle
     ? 'Alle Berge neu ausgewuerfelt, der Fortschritt bleibt'
     : BERGE[nr].name + ' neu ausgewuerfelt, der Fortschritt bleibt';
+};
+
+/* zeitPasswort('wort')  gibt der Zeitsperre ein eigenes Wort
+   zeitPasswort('')      nimmt es weg, dann gilt wieder das Vorhangwort
+   zeitPasswort()        sagt, was gilt
+   Sinnvoll, sobald das Kind das Vorhangwort auswendig kann - und das kann es,
+   es tippt es bei jedem Start. */
+window.zeitPasswort = function(wort){
+  if (wort === undefined)
+    return pwDaten(ZEIT_PW)
+      ? 'Die Zeitsperre hat ein eigenes Wort'
+      : 'Die Zeitsperre nimmt dasselbe Wort wie der Vorhang';
+  if (!wort){
+    try { localStorage.removeItem(ZEIT_PW); } catch(e){}
+    return 'Eigenes Wort entfernt, es gilt wieder das Vorhangwort';
+  }
+  const salz = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return streuwert(wortForm(wort), salz).then(hash => {
+    try { localStorage.setItem(ZEIT_PW, JSON.stringify({salz, hash})); } catch(e){}
+    return 'Wort für die Zeitsperre gesetzt. Der Vorhang behält seines.';
+  });
 };
 
 window.zeitLimit = function(minuten){
