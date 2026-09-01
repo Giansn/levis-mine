@@ -878,9 +878,9 @@ function bericht(){
     lies("localStorage.removeItem(SPIEL_PW); gesperrt = false");
     pruefe('Ohne eigenes Wort gilt das eingebaute', lies('pwDaten()') === null);
     pruefe('Das eingebaute Wort passt',
-      (await lies("aufschliessen('bergmine höfen')")) === true);
+      (await lies("aufschliessen(STANDARD_WORT)")) === true);
     pruefe('Gross und klein sind egal',
-      (await lies("aufschliessen('  Bergmine   HÖFEN ')")) === true);
+      (await lies("aufschliessen('  ' + STANDARD_WORT.toUpperCase() + '  ')")) === true);
     pruefe('Ein anderes Wort passt nicht',
       (await lies("aufschliessen('sesam')")) === false);
     await lies("window.spielPasswort('geheim')");
@@ -900,6 +900,23 @@ function bericht(){
       (await lies("aufschliessen('falsch')")) === false && lies('gesperrt') === true);
     pruefe('Das richtige schon',
       (await lies("aufschliessen('geheim')")) === true && lies('gesperrt') === false);
+
+    /* Das eingebaute Wort war von Anfang an nachsichtig, ein selbst gesetztes
+       nicht - gestreut wurde die rohe Eingabe. Wer 'geheim' setzte, kam mit
+       'Geheim' nicht mehr hinein, entgegen README und Maske. */
+    lies('gesperrt = true');
+    pruefe('Gross und klein zaehlen auch beim eigenen Wort nicht',
+      (await lies("aufschliessen('  GEHEIM  ')")) === true && lies('gesperrt') === false);
+
+    /* Ein Wort, das noch nach der alten Art abgelegt wurde, muss weiter
+       oeffnen - sonst sperrt ein Update jemanden aus dem eigenen Spiel aus. */
+    const altSalz = 'altessalz';
+    const altHash = await lies(`streuwert('AltWort', ${JSON.stringify(altSalz)})`);
+    lies(`localStorage.setItem(SPIEL_PW, JSON.stringify(
+      {salz: ${JSON.stringify(altSalz)}, hash: ${JSON.stringify(altHash)}}))`);
+    lies('gesperrt = true');
+    pruefe('Ein alt abgelegtes Wort oeffnet weiterhin',
+      (await lies("aufschliessen('AltWort')")) === true);
 
     await lies("window.spielPasswort('')");
     pruefe('Der Vorhang laesst sich wieder entfernen', lies('pwDaten()') === null);

@@ -92,7 +92,7 @@ const BERGE = [
    auf, der einfach spielen will, und niemanden sonst. Gesetzt wird sie ueber
    spielPasswort() in der Entwicklerkonsole, ohne Passwort erscheint sie nicht. */
 const SPIEL_PW = 'levisMine.pw';
-const STANDARD_WORT = 'bergmine höfen';   // gilt, solange keines gesetzt wurde
+const STANDARD_WORT = 'Passwort';   // gilt, solange keines gesetzt wurde
 let gesperrt = false;
 let ersterStart = false;   // beim ersten Besuch nach dem Vorhang die Hilfe zeigen
 
@@ -144,8 +144,14 @@ function aufschliessen(wort){
   const d = pwDaten();
   // Ohne eigenes Wort gilt das eingebaute. Der Vergleich laeuft dann direkt,
   // damit er aus einer lokalen Datei genauso funktioniert wie im Netz.
+  // Das eingebaute Wort war von Anfang an nachsichtig, ein selbst gesetztes
+  // nicht: gestreut wurde die rohe Eingabe. Wer 'Baggerloch' setzte, kam mit
+  // 'baggerloch' nicht mehr hinein - entgegen dem, was README und die Maske
+  // versprechen. Gestreut wird darum die aufgeraeumte Form. Der zweite
+  // Vergleich nimmt ein Wort an, das noch nach der alten Art abgelegt wurde.
   const geprueft = d
-    ? streuwert(wort || '', d.salz).then(h => h === d.hash)
+    ? Promise.all([streuwert(wortForm(wort), d.salz), streuwert(wort || '', d.salz)])
+        .then(([sauber, roh]) => sauber === d.hash || roh === d.hash)
     : Promise.resolve(wortForm(wort) === wortForm(STANDARD_WORT));
   return geprueft.then(passt => {
     if (!passt){ zeigeSchloss(true); return false; }
@@ -871,7 +877,7 @@ const KARTE = {
 /* Gilt der Tastendruck dem Spiel oder einem Eingabefeld? Ohne diese Frage
    loeste das Tippen eines Wortes lauter Spielbefehle aus: h die Hilfe, m die
    Berge, k den Laden, die Leertaste einen Stuetzbalken. Genau daran scheiterte
-   die Eingabe von "bergmine höfen" und ebenso die des Spielernamens. */
+   die Eingabe des Vorhangworts und ebenso die des Spielernamens. */
 function imEingabefeld(e){
   const z = e && e.target;
   if (!z) return false;
@@ -3742,7 +3748,7 @@ window.spielPasswort = function(wort){
     return 'Eigenes Wort entfernt, es gilt wieder das eingebaute';
   }
   const salz = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  return streuwert(wort, salz).then(hash => {
+  return streuwert(wortForm(wort), salz).then(hash => {
     try { localStorage.setItem(SPIEL_PW, JSON.stringify({salz, hash})); } catch(e){}
     return 'Wort gesetzt. Beim nächsten Laden kommt die Maske.';
   });

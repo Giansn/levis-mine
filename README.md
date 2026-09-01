@@ -17,7 +17,7 @@ Entwicklerkonsole mit `neuAnfangen()`.
 
 ## Vor dem Spiel
 
-Beim Laden kommt eine Maske mit einem Wort. Eingebaut ist **`bergmine höfen`**,
+Beim Laden kommt eine Maske mit einem Wort. Eingebaut ist **`Passwort`**,
 Gross- und Kleinschreibung und zusätzliche Leerzeichen spielen keine Rolle.
 
 Das ist ein Vorhang, kein Schloss: die Seite samt Prüfung wird geladen, bevor
