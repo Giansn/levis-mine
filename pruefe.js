@@ -445,8 +445,12 @@ const truhen = lies(`(()=>{ const t = [];
     t.push(Math.round((Math.floor(i/BREITE) - FUSS) * METER));
   return t; })()`);
 pruefe('Sechs Schatztruhen je Berg', truhen.length === 6, truhen.length + ' Stueck');
-pruefe('Alle Truhen liegen im untersten Drittel',
-       Math.min(...truhen) > tiefsteMeter/2 && Math.max(...truhen) < tiefsteMeter,
+/* Die Schwelle stand erst bei der halben Weltbtiefe und flackerte prompt: der
+   Generator setzt die erste Truhe schon ab 280 m, gemessen kamen 282 bis 288.
+   Gemeint ist "tief unten, nicht nebenbei zu finden", nicht ein Bruchteil -
+   250 m liegt sicher unter dem Generator und weit ueber Levis bisherigen 170. */
+pruefe('Alle Truhen liegen tief unten',
+       Math.min(...truhen) > 250 && Math.max(...truhen) < tiefsteMeter,
        Math.min(...truhen) + ' bis ' + Math.max(...truhen) + ' m');
 try { lies(`(()=>{ const t = S.lampe; S.lampe = 3;
   boden[idx(BASIS_X+3, FUSS+2)] = SCHATZ; zeichne(); S.lampe = t; })()`);
