@@ -45,9 +45,9 @@ Ist die Zeit um, steht im Sperrfenster ein Passwortfeld. Es gilt **dasselbe
 Wort wie beim Vorhang**, damit lässt sich die Zeit direkt am Gerät freigeben,
 ohne Konsole und ohne Netz.
 
-> **Das Kind kennt dieses Wort.** Es tippt es bei jedem Start selbst ein und
-> kann sich damit auch die Zeit freigeben. Wer das nicht will, gibt der
-> Zeitsperre in der Konsole ein eigenes Wort:
+> Das setzt voraus, dass ein Erwachsener das Passwort eingibt. Lernt das Kind
+> es mit, gibt es sich damit auch die Zeit frei. Dann bekommt die Zeitsperre
+> in der Konsole ein eigenes Wort:
 >
 > ```js
 > zeitPasswort('elternwort')   // nur für die Zeitsperre
