@@ -437,6 +437,36 @@ pruefe('Der Fortschritt bleibt dabei unangetastet',
 pruefe('Das gesetzte Portal wird mitgeloescht',
        lies('S.portale[S.bergNr]') === undefined);
 
+/* Dieselbe Rücksetzung, aber über das Pausenmenü statt über die Konsole.
+   Beide Wege von vorn fragen nach, damit ein Fehlklick nichts kostet. */
+lies('zeigeOptionen()');
+const pausenMenue = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
+pruefe('Das Pausenmenue bietet beide Wege von vorn',
+       pausenMenue().includes('Neues Spiel') && pausenMenue().includes('Karte zurücksetzen'));
+lies(`(()=>{ S.gold = 640; S.arbeiter = 2; S.werkzeuge.pickel = 61;
+  for (let dy = 0; dy < 14; dy++) boden[idx(BASIS_X+4, FUSS+dy)] = LEER;
+  S.portale[S.bergNr] = [BASIS_X+4, FUSS+10]; })()`);
+const stollen = () => lies(`(()=>{ let n = 0; for (let dy = 0; dy < 14; dy++)
+  if (boden[idx(BASIS_X+4, FUSS+dy)] === LEER) n++; return n; })()`);
+lies(`tueEs('karte')`);
+pruefe('Karte zuruecksetzen fragt erst nach',
+       pausenMenue().includes('Wirklich die Karte neu auswürfeln'));
+lies(`tueEs('zurueck')`);
+pruefe('Nein laesst den Stollen stehen', stollen() === 14, stollen() + ' Kacheln');
+lies(`tueEs('karte'); tueEs('karteJa')`);
+pruefe('Ja wuerfelt den Berg neu aus', stollen() === 0, stollen() + ' Kacheln');
+pruefe('Und laesst den Fortschritt in Ruhe',
+       lies('S.gold') === 640 && lies('S.arbeiter') === 2 && lies('S.werkzeuge.pickel') === 61);
+pruefe('Danach ist das Fenster zu',
+       lies('document.getElementById("schleier").hidden') === true);
+
+/* zeigeOptionen(true) hiess frueher "frag nach dem Loeschen". Der alte Aufruf
+   darf durch die zwei Rueckfragen nicht stillschweigend etwas anderes tun. */
+lies('zeigeOptionen(true)');
+pruefe('Der alte Aufruf fragt weiter nach dem Loeschen',
+       pausenMenue().includes('Wirklich neu anfangen'));
+lies('fensterZu()');
+
 /* Truhen: Anzahl und Tiefe sind der Reiz. Liegen sie zu weit oben, ist der
    Fund kein Ereignis mehr; liegen sie zu tief, sieht sie nie jemand. */
 const tiefsteMeter = lies('TIEFEN * METER');

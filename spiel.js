@@ -380,7 +380,13 @@ function zeigeOptionen(nachfrage){
   const knopf = (tat, text, art = '') =>
     `<button class="kauf ${art}" data-tat="${tat}">${text}</button>`;
 
-  const gefahr = nachfrage
+  /* Zwei Wege von vorn, die verschieden weit gehen. Beide fragen nach, damit
+     ein Fehlklick nichts kostet: loeschen ist endgueltig, und ein neu
+     ausgewuerfelter Berg nimmt einen Stollen mit, an dem lange gegraben wurde.
+     'true' bleibt gleichbedeutend mit 'neu', damit alte Aufrufe weiter gehen. */
+  const frage = nachfrage === true ? 'neu' : nachfrage;
+
+  const gefahr = frage === 'neu'
     ? `<div class="gefahr">
          <p><b>Wirklich neu anfangen?</b> Dein Spielstand wird gelöscht:
          ${zahl(S.gold)} Goldstücke, ${S.offen.length} ${S.offen.length === 1 ? 'Berg' : 'Berge'},
@@ -390,12 +396,29 @@ function zeigeOptionen(nachfrage){
            ${knopf('zurueck', 'Nein, weiterspielen', 'zweit')}
          </div>
        </div>`
+    : frage === 'karte'
+    ? `<div class="gefahr">
+         <p><b>Wirklich die Karte neu auswürfeln?</b> Dein Stollen im
+         ${BERGE[S.bergNr].name} ist weg, dazu gesetzte Stützbalken, Schienen
+         und dein Portal. ${zahl(S.gold)} Goldstücke, deine Werkzeuge und deine
+         Arbeiter behältst du.</p>
+         <div class="gitter" style="margin-top:10px">
+           ${knopf('karteJa', 'Ja, Berg neu auswürfeln')}
+           ${knopf('zurueck', 'Nein, weiterspielen', 'zweit')}
+         </div>
+       </div>`
     : `<h3 class="abschnitt">Von vorn</h3>
        <div class="gitter">
          <div class="ware">
            <div class="kopf2"><b>Neues Spiel</b></div>
            <p>Löscht den Spielstand und erzeugt einen neuen Berg.</p>
            ${knopf('neu', 'Neues Spiel')}
+         </div>
+         <div class="ware">
+           <div class="kopf2"><b>Karte zurücksetzen</b></div>
+           <p>Würfelt nur den Berg neu aus. Gold, Werkzeuge, Ausrüstung und
+           Arbeiter behältst du, der gegrabene Stollen ist weg.</p>
+           ${knopf('karte', 'Karte zurücksetzen', 'zweit')}
          </div>
        </div>`;
 
@@ -437,8 +460,10 @@ function tueEs(tat){
   else if (tat === 'laden') zeigeLaden();
   else if (tat === 'berge') zeigeBerge();
   else if (tat === 'hilfe') zeigeHilfe();
-  else if (tat === 'neu') zeigeOptionen(true);      // erst nachfragen
+  else if (tat === 'neu') zeigeOptionen('neu');       // erst nachfragen
   else if (tat === 'neuJa') neuAnfangen();
+  else if (tat === 'karte') zeigeOptionen('karte');   // ebenso
+  else if (tat === 'karteJa'){ window.karteZuruecksetzen(); fensterZu(); }
   else if (tat === 'wechseln') zeigeAnmeldung();
   else if (tat === 'zeitFrei'){
     const feld = document.getElementById('zeitFeld2');
@@ -3914,8 +3939,7 @@ window.spielPasswort = function(wort){
    Der Fortschritt bleibt: Gold, Werkzeuge, Ausruestung, Arbeiter und die
    geoeffneten Berge ruehrt das nicht an. Weg sind der gegrabene Stollen,
    gesetzte Balken und Schienen und das, was Levi schon gesehen hat - eben
-   die Karte. Bewusst hier und nicht im Spiel: ein Berg voll frischem Erz auf
-   Knopfdruck waere sonst der kuerzeste Weg an jeder Anstrengung vorbei. */
+   die Karte. Dasselbe steht im Pausenmenue unter Esc, mit Rueckfrage. */
 window.karteZuruecksetzen = function(alle){
   const nr = S.bergNr;
   // Das gesetzte Portal zeigt sonst mitten in frischen Fels.

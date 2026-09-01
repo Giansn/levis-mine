@@ -71,13 +71,13 @@ Ausrüstung, Arbeiter und die geöffneten Berge bleiben; weg sind der gegrabene
 Stollen, gesetzte Balken und Schienen, das gesetzte Portal und das, was Levi
 schon gesehen hat.
 
+Im Spiel steht das unter `Esc` als **Karte zurücksetzen**, mit einer Rückfrage
+davor. In der Konsole geht dasselbe, und dort auch für alle Berge auf einmal:
+
 ```js
 karteZuruecksetzen()       // den Berg, auf dem Levi gerade steht
 karteZuruecksetzen(true)   // alle Berge auf einmal
 ```
-
-Bewusst nur in der Konsole und nicht im Spiel: ein Berg voll frischem Erz auf
-Knopfdruck wäre der kürzeste Weg an jeder Anstrengung vorbei.
 
 Das hält ein Kind auf, das einfach weiterspielen will. Wer die Konsole selbst
 öffnet oder den Browserspeicher löscht, kommt daran vorbei. Ohne Server lässt
