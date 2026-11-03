@@ -118,6 +118,18 @@ Zu Punkt 4: der Verbrauch wurde gemessen statt geschätzt. Reines Bohren kostet
 Vierteln Bohren 2,99. Daraus folgen 898 für fünf Minuten, aufgerundet 900.
 Volltanken an der Basis bleibt bei drei Sekunden, unabhängig von der Tankgrösse.
 
+## Berge
+
+Alle vier Berge stehen offen, Hinfahren über `M` kostet nichts. Jeder ist
+härter und reicher als der vorige: Grünhügel, Kupferkamm, Silbergrat,
+Goldspitze. Der **erste Besuch** eines Bergs bringt einen Zusatzarbeiter — nicht
+das Freischalten, sonst sässen von Anfang an drei Arbeiter da, bevor etwas
+getan wurde. Im Bergfenster steht bei jedem, ob er schon besucht ist.
+
+Bestehende Spielstände werden beim Laden nachgezogen: alle Berge kommen dazu,
+und wer früher Berge freigekauft hat, gilt dort als gewesen und behält seine
+Arbeiter.
+
 ## Zonen
 
 Die 600 Meter zerfallen in fünf benannte Abschnitte. Der Name steht in der

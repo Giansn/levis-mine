@@ -1084,6 +1084,44 @@ lies(`(() => { P.y = basisY() - P.h; hud(); })()`);
 pruefe('Zonen: oben steht Oberfläche',
   lies(`document.getElementById('zoneName').textContent`) === 'Oberfläche');
 
+/* ============================ Berge offen =============================== */
+lies('Object.assign(S, {offen: BERGE.map((_,i)=>i), besucht:[0], angestellte:0, bergNr:0, gold:0})');
+pruefe('Berge: alle von Anfang an offen', lies('S.offen.length') === lies('BERGE.length'),
+  lies('S.offen.length') + ' von ' + lies('BERGE.length'));
+pruefe('Berge: ohne Besuch noch kein Zusatzarbeiter', lies('arbeiter()') === 0,
+  'Arbeiter ' + lies('arbeiter()'));
+const goldVorReise = lies('S.gold');
+lies('wechsleBerg(3)');
+pruefe('Berge: Hinfahren kostet nichts', lies('S.gold') === goldVorReise,
+  goldVorReise + ' auf ' + lies('S.gold'));
+pruefe('Berge: auch der teuerste ist erreichbar', lies('S.bergNr') === 3);
+pruefe('Berge: der erste Besuch bringt den Arbeiter', lies('arbeiter()') === 1,
+  'Arbeiter ' + lies('arbeiter()'));
+lies('wechsleBerg(0); wechsleBerg(3)');
+pruefe('Berge: ein zweiter Besuch bringt keinen weiteren', lies('arbeiter()') === 1,
+  'Arbeiter ' + lies('arbeiter()'));
+lies('wechsleBerg(1); wechsleBerg(2)');
+pruefe('Berge: jeder neue Berg bringt einen', lies('arbeiter()') === 3,
+  'Arbeiter ' + lies('arbeiter()'));
+pruefe('Berge: Fenster zeigt keinen Preis mehr',
+  (() => { lies('zeigeBerge()');
+    const h = lies(`document.getElementById('fensterInhalt').innerHTML`);
+    return !h.includes('öffnen') && !h.includes('Goldstücke nötig') && h.includes('Hinfahren'); })());
+lies('fensterZu()');
+
+/* Levis bestehender Stand: nur Berg 0 und 1 offen, kein Feld besucht */
+const alt1 = lies(`(() => {
+  const d = JSON.parse(localStorage.getItem(SCHLUESSEL));
+  d.S.offen = [0,1]; delete d.S.besucht; d.S.angestellte = 0;
+  localStorage.setItem(SCHLUESSEL, JSON.stringify(d));
+  lade();
+  return {offen: S.offen.length, besucht: (S.besucht||[]).slice(), arbeiter: arbeiter()};
+})()`);
+pruefe('Berge: alter Stand bekommt alle Berge', alt1.offen === lies('BERGE.length'),
+  alt1.offen + ' offen');
+pruefe('Berge: alter Stand verliert keinen Arbeiter', alt1.arbeiter === 1,
+  'besucht ' + JSON.stringify(alt1.besucht) + ', Arbeiter ' + alt1.arbeiter);
+
 /* ------------------------------- Bericht --------------------------------- */
 function bericht(){
   console.log('');

@@ -629,7 +629,9 @@ const KURZ_FAKT  = 1.7;   // Taste losgelassen: den Aufstieg kappen
 
 const S = {
   gold:0, verdient:0,
-  bergNr:0, offen:[0],
+  bergNr:0,
+  offen: BERGE.map((_, i) => i),   // alle Berge stehen offen, Reisen kostet nichts
+  besucht:[0],                     // wo Levi war. Daran haengt der Zusatzarbeiter
   fracht:{erz:0, kupfer:0, bronze:0, silber:0, gold:0},
   lager: {erz:0, kupfer:0, bronze:0, silber:0, gold:0},
   werkzeuge:{schaufel:120, pickel:95},
@@ -1001,7 +1003,10 @@ const kapazitaet = () => 25 + (S.wagen ? 25 : 0) + (S.bohrer ? 35 : 0);
 const frachtMasse = () => MATS.reduce((s,m) => s + S.fracht[m]*MATERIAL[m].masse, 0);
 const frachtStueck = () => MATS.reduce((s,m) => s + S.fracht[m], 0);
 const stufe = () => { let s = 1; for (let i = 1; i < STUFEN.length; i++) if (S.verdient >= STUFEN[i]) s = i+1; return s; };
-const arbeiter = () => S.offen.length - 1 + (S.angestellte || 0);
+/* Der Zusatzarbeiter kommt vom Hinfahren, nicht vom Freischalten. Haengte er
+   am Freischalten, saessen mit offenen Bergen drei Arbeiter da, bevor Levi
+   etwas getan hat. */
+const arbeiter = () => (S.besucht || [0]).length - 1 + (S.angestellte || 0);
 
 function nimmMaterial(m, n){
   const masse = MATERIAL[m].masse;
@@ -3600,21 +3605,19 @@ function verkaufe(m){
 
 function zeigeBerge(){
   const st = stufe();
+  /* Alle Berge stehen offen, Hinfahren kostet nichts. Wer noch nicht dort war,
+     holt sich beim ersten Besuch einen Zusatzarbeiter - das steht auf der Karte,
+     damit Levi sieht, wo noch einer wartet. */
+  const besucht = S.besucht || [0];
   const karten = BERGE.map((b, i) => {
-    const offen = S.offen.includes(i);
     const hier = S.bergNr === i;
-    const zuTief = st < b.stufe;
-    const bezahlbar = S.gold >= b.kosten;
-    let knopf, aus = false;
-    if (hier){ knopf = 'Du bist hier'; aus = true; }
-    else if (offen) knopf = 'Hinfahren';
-    else if (zuTief){ knopf = 'Ab Stufe ' + b.stufe; aus = true; }
-    else if (!bezahlbar){ knopf = b.kosten + ' Goldstücke nötig'; aus = true; }
-    else knopf = 'Für ' + b.kosten + ' öffnen';
-    return `<div class="ware bergKarte ${hier ? 'hier' : ''} ${offen ? '' : 'zu'}">
-      <div class="kopf2"><b>${b.name}</b><span style="color:var(--matt)">Stufe ${b.stufe}</span></div>
+    const warDa = besucht.includes(i);
+    return `<div class="ware bergKarte ${hier ? 'hier' : ''}">
+      <div class="kopf2"><b>${b.name}</b><span style="color:var(--matt)">${
+        warDa ? 'schon besucht' : 'neu, bringt einen Arbeiter'}</span></div>
       <p>${b.text}</p>
-      <button class="kauf ${offen ? 'zweit' : ''}" data-berg="${i}" ${aus ? 'disabled' : ''}>${knopf}</button>
+      <button class="kauf zweit" data-berg="${i}" ${hier ? 'disabled' : ''}>${
+        hier ? 'Du bist hier' : 'Hinfahren'}</button>
     </div>`;
   }).join('');
 
@@ -3627,12 +3630,13 @@ function zeigeBerge(){
 
 function wechsleBerg(nr){
   const b = BERGE[nr];
-  if (!S.offen.includes(nr)){
-    if (stufe() < b.stufe || S.gold < b.kosten) return;
-    S.gold -= b.kosten;
-    S.offen.push(nr);
+  if (!BERGE[nr]) return;
+  if (!S.offen.includes(nr)) S.offen.push(nr);
+  S.besucht = S.besucht || [0];
+  if (!S.besucht.includes(nr)){
+    S.besucht.push(nr);
     klang('kaufen');
-    melde(b.name + ' geöffnet, ein Zusatzarbeiter kommt dazu', 'gold');
+    melde('Zum ersten Mal am ' + b.name + '. Ein Zusatzarbeiter kommt dazu', 'gold');
   }
   ladeWelt(nr);
   fensterZu();
@@ -3719,7 +3723,7 @@ function zeigeHilfe(){
         erkennst und deren Name in der Kopfleiste neben der Tiefe steht:
         ${ZONEN.map((z,i) => z.name + ' bis ' + (i === ZONEN.length-1 ? '600' : z.bis*METER) + ' m').join(', ')}.
         Beim ersten Eintritt meldet sich jede einmal.</td></tr>
-      <tr><td>Berge</td><td>Vier Berge, jeder härter und reicher. Jeder neue Berg bringt zusätzlich
+      <tr><td>Berge</td><td>Alle vier Berge stehen offen, Hinfahren mit <kbd>M</kbd> kostet nichts. Jeder ist härter und reicher als der vorige. Der erste Besuch bringt zusätzlich
         einen Arbeiter mit, der auch ohne dich Gold abliefert.</td></tr>
     </table>
 
@@ -3824,6 +3828,14 @@ function lade(){
     if (n){ ausLager += n * MATERIAL[m].wert; S.lager[m] = 0; }
   }
   if (ausLager){ S.gold += ausLager; S.verdient += ausLager; }
+  /* Umstellung alter Staende: die Berge stehen jetzt alle offen, und der
+     Zusatzarbeiter haengt am Besuch. Wer frueher Berge freigekauft hat, war
+     auch dort, also zaehlen die als besucht - niemand verliert einen Arbeiter. */
+  /* Am gespeicherten Stand festmachen, nicht am laufenden: Object.assign
+     loescht keine Felder, die im Stand fehlen, sonst bliebe das besucht aus
+     dem Arbeitsspeicher stehen und ein Rueckkehrer verloere seine Arbeiter. */
+  S.besucht = (daten.S.besucht || daten.S.offen || [0]).slice();
+  for (let i = 0; i < BERGE.length; i++) if (!S.offen.includes(i)) S.offen.push(i);
   for (const nr in daten.welten){
     const bo = entpacke(daten.welten[nr].boden, BREITE*HOEHE, Uint8Array);
     const ba = entpacke(daten.welten[nr].bau, BREITE*HOEHE, Uint8Array);
