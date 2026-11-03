@@ -348,7 +348,7 @@ lies('taste.auf = true');
 try { for (let i = 0; i < 240; i++) lies('aktualisiere(1/60)'); }
 catch (e){ fehler.push('im Fahrzeug: ' + e.stack); }
 lies('taste.auf = false');
-pruefe('Schub verbraucht Treibstoff', lies('S.treibstoff') < 100, 'Tank ' + Math.round(lies('S.treibstoff')));
+pruefe('Schub verbraucht Treibstoff', lies('S.treibstoff') < lies('TANK'), 'Tank ' + Math.round(lies('S.treibstoff')));
 
 /* Dass Schub Sprit frisst, hat die Sperre oben nicht bemerkt: das Fahrzeug
    verbrauchte, ohne je zu steigen (G*KURZ_FAKT = 64,6 lag ueber SCHUB = 54).
@@ -356,7 +356,7 @@ pruefe('Schub verbraucht Treibstoff', lies('S.treibstoff') < 100, 'Tank ' + Math
 lies(`(()=>{const x=24, y=FUSS+40;
   for (let dy=-16; dy<=1; dy++) for (let dx=-1; dx<=1; dx++) boden[idx(x+dx,y+dy)] = LEER;
   boden[idx(x,y+2)] = ERDE;
-  S.treibstoff = 100;
+  S.treibstoff = TANK;
   P.x = x+0.15; P.y = y+1-P.h; P.vx = 0; P.vy = 0;
   for (let i=0;i<30;i++) aktualisiere(1/60);
   globalThis.flugStart = P.y;
@@ -373,7 +373,7 @@ pruefe('Bohrfahrzeug hebt unter Schub ab', lies('flugHoehe') > 3,
    Gemessen wird darum, ob der Motor einen Sturz auch wirklich auffaengt. */
 lies(`(()=>{const x = 24;
   for (let y = FUSS+5; y < FUSS+220; y++) for (let dx=-1; dx<=1; dx++) boden[idx(x+dx,y)] = LEER;
-  S.treibstoff = 100;
+  S.treibstoff = TANK;
   P.x = x+0.15; P.y = FUSS+8; P.vx = 0; P.vy = 0;
   for (let i=0;i<90;i++) aktualisiere(1/60);
   globalThis.sturzTempo = P.vy;
@@ -423,7 +423,7 @@ pruefe('Ein verschuettetes Portal raeumt seinen Platz',
 
 /* Karte zuruecksetzen: der Berg ist neu, der Fortschritt bleibt. */
 lies('nutzeSeilwinde()');
-lies(`(()=>{ S.gold = 512; S.arbeiter = 3; S.werkzeuge.pickel = 77; S.verdient = 4242;
+lies(`(()=>{ S.gold = 512; S.angestellte = 3; S.werkzeuge.pickel = 77; S.verdient = 4242;
   bau[idx(BASIS_X+4, FUSS+3)] = 1; gesehen[idx(BASIS_X+4, FUSS+3)] = 1; })()`);
 lies('window.karteZuruecksetzen()');
 pruefe('Kartenruecksetzung fuellt den Stollen wieder',
@@ -432,7 +432,7 @@ pruefe('Kartenruecksetzung fuellt den Stollen wieder',
 pruefe('Balken und Gesehenes sind weg',
        lies(`bau[idx(BASIS_X+4, FUSS+3)]`) === 0 && lies(`gesehen[idx(BASIS_X+4, FUSS+3)]`) === 0);
 pruefe('Der Fortschritt bleibt dabei unangetastet',
-       lies('S.gold') === 512 && lies('S.arbeiter') === 3
+       lies('S.gold') === 512 && lies('S.angestellte') === 3
        && lies('S.werkzeuge.pickel') === 77 && lies('S.verdient') === 4242);
 pruefe('Das gesetzte Portal wird mitgeloescht',
        lies('S.portale[S.bergNr]') === undefined);
@@ -443,7 +443,7 @@ lies('zeigeOptionen()');
 const pausenMenue = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
 pruefe('Das Pausenmenue bietet beide Wege von vorn',
        pausenMenue().includes('Neues Spiel') && pausenMenue().includes('Karte zurücksetzen'));
-lies(`(()=>{ S.gold = 640; S.arbeiter = 2; S.werkzeuge.pickel = 61;
+lies(`(()=>{ S.gold = 640; S.angestellte = 2; S.werkzeuge.pickel = 61;
   for (let dy = 0; dy < 14; dy++) boden[idx(BASIS_X+4, FUSS+dy)] = LEER;
   S.portale[S.bergNr] = [BASIS_X+4, FUSS+10]; })()`);
 const stollen = () => lies(`(()=>{ let n = 0; for (let dy = 0; dy < 14; dy++)
@@ -460,9 +460,12 @@ lies(`tueEs('karte'); tueEs('karteJa')`);
 pruefe('Ja wuerfelt den Berg neu aus', stollen() <= 6,
        'noch ' + stollen() + ' von 14 Kacheln offen');
 pruefe('Und laesst den Fortschritt in Ruhe',
-       lies('S.gold') === 640 && lies('S.arbeiter') === 2 && lies('S.werkzeuge.pickel') === 61);
+       lies('S.gold') === 640 && lies('S.angestellte') === 2 && lies('S.werkzeuge.pickel') === 61);
 pruefe('Danach ist das Fenster zu',
        lies('document.getElementById("schleier").hidden') === true);
+// Angestellte sind ein echtes Feld mit Wirkung. Was dieser Block hineinschrieb,
+// faerbte sonst die Arbeiterpruefung beim Bergwechsel ein.
+lies('S.angestellte = 0');
 
 /* zeigeOptionen(true) hiess frueher "frag nach dem Loeschen". Der alte Aufruf
    darf durch die zwei Rueckfragen nicht stillschweigend etwas anderes tun. */
@@ -796,20 +799,21 @@ lies('gesperrt = false');
 /* ------------------------------ Tankwarnung ------------------------------- */
 /* Der rote Balken allein sieht niemand, der unten auf Levi schaut. */
 const meldungen = () => lies(`document.getElementById('meldungen').children.length`);
-lies('S.bohrer = true; S.imFahrzeug = true; S.treibstoff = 100; spritGewarnt = 101');
+const M30 = lies('TANK * 0.30'), M12 = lies('TANK * 0.12');
+lies('S.bohrer = true; S.imFahrzeug = true; S.treibstoff = TANK; spritGewarnt = Infinity');
 lies(`document.getElementById('meldungen').children.length = 0`);
-lies('S.treibstoff = 28');
+lies('S.treibstoff = TANK * 0.28');
 lies('aktualisiere(1/60)');
-pruefe('Unter dreissig warnt es', lies('spritGewarnt') === 30, 'Marke ' + lies('spritGewarnt'));
-lies('S.treibstoff = 27; aktualisiere(1/60)');
-pruefe('Aber nur einmal je Marke', lies('spritGewarnt') === 30);
-lies('S.treibstoff = 10; aktualisiere(1/60)');
-pruefe('Kurz vor leer warnt es noch einmal', lies('spritGewarnt') === 12, 'Marke ' + lies('spritGewarnt'));
-lies('S.treibstoff = 100; aktualisiere(1/60)');
-pruefe('Nach dem Tanken ist die Warnung wieder scharf', lies('spritGewarnt') === 101);
-lies('S.imFahrzeug = false; S.treibstoff = 5; spritGewarnt = 101; aktualisiere(1/60)');
-pruefe('Zu Fuss warnt der Tank nicht', lies('spritGewarnt') === 101);
-lies('S.treibstoff = 100; S.imFahrzeug = false; S.bohrer = false; spritGewarnt = 101');
+pruefe('Unter dreissig Prozent warnt es', lies('spritGewarnt') === M30, 'Marke ' + lies('spritGewarnt'));
+lies('S.treibstoff = TANK * 0.27; aktualisiere(1/60)');
+pruefe('Aber nur einmal je Marke', lies('spritGewarnt') === M30);
+lies('S.treibstoff = TANK * 0.10; aktualisiere(1/60)');
+pruefe('Kurz vor leer warnt es noch einmal', lies('spritGewarnt') === M12, 'Marke ' + lies('spritGewarnt'));
+lies('S.treibstoff = TANK; aktualisiere(1/60)');
+pruefe('Nach dem Tanken ist die Warnung wieder scharf', lies('spritGewarnt') === Infinity);
+lies('S.imFahrzeug = false; S.treibstoff = TANK*0.05; spritGewarnt = Infinity; aktualisiere(1/60)');
+pruefe('Zu Fuss warnt der Tank nicht', lies('spritGewarnt') === Infinity);
+lies('S.treibstoff = TANK; S.imFahrzeug = false; S.bohrer = false; spritGewarnt = Infinity');
 
 /* ------------------------------ Optionen --------------------------------- */
 const inhalt = () => lies(`document.getElementById('fensterInhalt').innerHTML`);
@@ -928,6 +932,112 @@ pruefe('Es gibt keinen Tagesbezug mehr', !('tag' in lies('zeitStand')),
   Object.keys(lies('zeitStand')).join(', '));
 lies('window.zeitZuruecksetzen()');
 pruefe('Nur das Zuruecksetzen gibt frei', lies('zeitStand.sekunden') === 0);
+
+/* ===================== Levis Zettel, die fuenf Punkte ==================== */
+lies('ladeWelt(0); MATS.forEach(m => { S.fracht[m]=0; S.lager[m]=0; })');
+lies('S.gold = 50000; S.verdient = 50000; S.angestellte = 0; S.offen = [0]');
+
+/* 1. Arbeiter kaufen */
+pruefe('1 Arbeiter: Laden bietet welche an',
+  lies(`ladenListe().some(w => w.art === 'arbeiter')`) === true);
+const arbVorher = lies('arbeiter()');
+const preis1 = lies(`ladenListe().find(w => w.id === 'arbeiter').preis.gold`);
+lies(`kaufe('arbeiter')`);
+pruefe('1 Arbeiter: Kauf erhoeht die Zahl', lies('arbeiter()') === arbVorher + 1,
+  arbVorher + ' auf ' + lies('arbeiter()'));
+const preis2 = lies(`ladenListe().find(w => w.id === 'arbeiter').preis.gold`);
+pruefe('1 Arbeiter: jeder weitere kostet mehr', preis2 > preis1, preis1 + ' dann ' + preis2);
+lies('S.gold = 50000; arbeiterUhr = 0');
+const goldVorTick = lies('S.gold');
+for (let i = 0; i < 400; i++) lies('aktualisiere(1/60)');
+pruefe('1 Arbeiter: er liefert Gold ab', lies('S.gold') > goldVorTick,
+  goldVorTick + ' auf ' + lies('S.gold'));
+
+/* 2. Seilwinde, fuenf je Kauf */
+lies('S.gold = 50000; S.seilwinde = 0');
+lies(`kaufe('seilwinde')`);
+pruefe('2 Seilwinde: fuenf Stueck je Kauf', lies('S.seilwinde') === 5, lies('S.seilwinde') + ' Stueck');
+
+/* 3. Dynamit, fuenf Stangen je Kauf */
+lies('S.gold = 50000; S.dynamit = 0');
+lies(`kaufe('dynamit')`);
+pruefe('3 Dynamit: fuenf Stangen je Kauf', lies('S.dynamit') === 5, lies('S.dynamit') + ' Stangen');
+
+/* 4. Tank haelt fuenf Minuten */
+pruefe('4 Tank: Groesse gesetzt', lies('TANK') === 900, lies('TANK') + ' Einheiten');
+const spritLauf = lies(`(() => {
+  ladeWelt(0);
+  S.bohrer = true; S.imFahrzeug = true; S.treibstoff = TANK; S.leben = 1e9;
+  S.werkzeuge = {schaufel:1e9, pickel:1e9, hammer:1e9, nagel:1e9};
+  let bilder = 0;
+  while (S.treibstoff > 0 && bilder < 60*600){
+    const phase = bilder % 60;
+    taste.ab = phase < 45; taste.auf = phase >= 45; taste.rechts = phase >= 45;
+    aktualisiere(1/60);
+    if (frachtMasse() >= kapazitaet()) MATS.forEach(m => S.fracht[m] = 0);
+    bilder++;
+  }
+  taste.ab = taste.auf = taste.rechts = false;
+  return bilder / 60;
+})()`);
+pruefe('4 Tank: haelt rund fuenf Minuten', spritLauf >= 270 && spritLauf <= 360,
+  spritLauf.toFixed(0) + ' s bei drei Vierteln Bohren');
+const tankZeit = lies(`(() => {
+  S.treibstoff = 0; P.x = BASIS_X; P.y = basisY() - P.h;
+  let t = 0; while (S.treibstoff < TANK && t < 60*30){ basisTick(1/60); t++; }
+  return t/60;
+})()`);
+pruefe('4 Tank: Volltanken an der Basis bleibt kurz', tankZeit < 5,
+  tankZeit.toFixed(1) + ' s');
+
+/* 5. Nebenbasis mit vier Ersatztanks */
+lies('ladeWelt(0); S.gold = 50000; S.tanklager = 0; S.basen = {}');
+lies(`kaufe('tanklager')`);
+pruefe('5 Nebenbasis: kaufbar', lies('S.tanklager') === 1, lies('S.tanklager') + ' im Rucksack');
+const nb = lies(`(() => {
+  const x = 26, y = FUSS + 50;
+  for (let dy = -3; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) boden[idx(x+dx, y+dy)] = LEER;
+  for (let dx = -2; dx <= 2; dx++) boden[idx(x+dx, y+1)] = ERDE;
+  P.x = x + 0.15; P.y = y + 1 - P.h; P.vx = 0; P.vy = 0;
+  for (let i = 0; i < 20; i++) aktualisiere(1/60);
+  setzeNebenbasis();
+  const liste = S.basen[S.bergNr] || [];
+  return {x, y, imRucksack: S.tanklager, gesetzt: liste.length,
+          tanks: liste.length ? liste[0][2] : 0};
+})()`);
+pruefe('5 Nebenbasis: abgelegt', nb.gesetzt === 1 && nb.imRucksack === 0);
+pruefe('5 Nebenbasis: bringt vier Ersatztanks mit', nb.tanks === 4, nb.tanks + ' Tanks');
+lies(`setzeNebenbasis()`);
+pruefe('5 Nebenbasis: ohne Vorrat geht nichts', (lies('S.basen[S.bergNr]') || []).length === 1);
+
+lies('S.bohrer = true; S.treibstoff = TANK');
+lies('basenTick(1/60)');
+pruefe('5 Nebenbasis: bei vollem Tank wird nichts verbraucht',
+  lies('S.basen[S.bergNr][0][2]') === 4);
+lies('S.treibstoff = TANK * 0.2; basenTick(1/60)');
+pruefe('5 Nebenbasis: tankt bei halb leerem Tank voll',
+  lies('S.treibstoff') === lies('TANK') && lies('S.basen[S.bergNr][0][2]') === 3,
+  'Rest ' + lies('S.basen[S.bergNr][0][2]'));
+for (let i = 0; i < 3; i++){ lies('S.treibstoff = TANK * 0.2; basenTick(1/60)'); }
+pruefe('5 Nebenbasis: nach vier Fuellungen verschwunden',
+  (lies('S.basen[S.bergNr]') || []).length === 0);
+
+/* Nebenbasen gehoeren zum Berg und ueberleben das Speichern */
+lies('ladeWelt(0); S.tanklager = 2; S.basen = {}');
+lies(`(() => { P.x = 26.15; P.y = FUSS + 51 - P.h;
+  for (let dy=-3; dy<=1; dy++) boden[idx(26, FUSS+50+dy)] = LEER;
+  boden[idx(26, FUSS+51)] = ERDE;
+  for (let i=0;i<20;i++) aktualisiere(1/60);
+  setzeNebenbasis(); })()`);
+const vorSpeichern = JSON.stringify(lies('S.basen[0]'));
+lies('speichere()');
+lies('S.basen = {}; S.tanklager = 0');
+lies('lade()');
+pruefe('5 Nebenbasis: ueberlebt Speichern und Laden',
+  JSON.stringify(lies('S.basen[0]')) === vorSpeichern, vorSpeichern);
+lies('window.karteZuruecksetzen()');
+pruefe('5 Nebenbasis: Karte zuruecksetzen raeumt sie weg',
+  (lies('S.basen[0]') || []).length === 0);
 
 /* ------------------------------- Bericht --------------------------------- */
 function bericht(){

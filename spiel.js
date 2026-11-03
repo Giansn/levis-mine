@@ -497,20 +497,26 @@ const LADEN = [
   {id:'nagel', art:'werkzeug', name:'Grosser Hammer & Nagel', stufe:3,
    text:'Bricht Granit und Golderz, das tiefste Gestein.', preis:{gold:110}},
   {id:'lampe', art:'lampe', stufe:1, name:'Lampe', text:''},
-  {id:'dynamit', art:'stapel', anzahl:1, name:'Dynamit', stufe:1,
-   text:'Sprengt alles im Umkreis. Einmal gezündet, dann weg.', preis:{gold:8}},
+  {id:'dynamit', art:'stapel', anzahl:5, name:'Dynamit ×5', stufe:1,
+   text:'Fünf Stangen auf einmal. Jede sprengt alles im Umkreis und ist danach weg.',
+   preis:{gold:34}},
   {id:'balken', art:'stapel', anzahl:20, name:'Stützbalken ×20', stufe:1,
    text:'An gesetzten Balken kletterst du mit ▲ und ▼, und du kannst oben darauf stehen. '
       + 'Zugleich stützen sie den Stollen gegen Einsturz. Setzen mit der Leertaste.',
    preis:{gold:12}},
-  {id:'seilwinde', art:'stapel', anzahl:2, name:'Seilwinde ×2', stufe:1,
-   text:'Zieht dich samt Ladung sofort zur Basis hoch, wenn du unten feststeckst.', preis:{gold:10}},
+  {id:'seilwinde', art:'stapel', anzahl:5, name:'Seilwinde ×5', stufe:1,
+   text:'Fünf Stück. Jede zieht dich samt Ladung sofort zur Basis hoch, wenn du unten feststeckst.',
+   preis:{gold:22}},
   {id:'schienen', art:'stapel', anzahl:20, name:'Schienen ×20', stufe:1,
    text:'Gleis vom Stollen bis zur Basis.', preis:{gold:50}},
   {id:'wagen', art:'einmal', name:'Minenwagen', stufe:1,
    text:'Schickt die Ladung über die Schienen heim. Fracht +25.', preis:{gold:50}},
   {id:'bohrer', art:'einmal', name:'Bohrfahrzeug', stufe:1, verdient:200,
    text:'Bohrt jedes Gestein, fliegt mit Schub, Fracht +35.', preis:{gold:100}},
+  {id:'arbeiter', art:'arbeiter', stufe:1, name:'Arbeiter', text:''},
+  {id:'tanklager', art:'stapel', anzahl:1, name:'Nebenbasis mit 4 Ersatztanks', stufe:2,
+   text:'Leg sie mit N unten im Berg ab. Fährst du mit halb leerem Tank daran vorbei, '
+      + 'tankt sie dich voll. Vier Füllungen, dann ist sie leer.', preis:{gold:70}},
   {id:'portal', art:'einmal', name:'Portalstein', stufe:2,
    text:'Setz ihn mit T tief im Berg. An der Basis bringt dich T dann sofort wieder dorthin, '
       + 'ohne den ganzen Weg noch einmal zu graben.', preis:{gold:75}},
@@ -552,6 +558,20 @@ const SCHUB      = 54;    // Bohrfahrzeug: Schub nach oben, knapp über G
 const SCHUB_SEIT = 20;    // Seitendüsen in der Luft, absichtlich träge
 const KETTEN_GRIFF = 1.6;   // Am Boden greifen die Ketten besser als die Düsen
 const MAX_SCHUB  = 13;    // Steiggeschwindigkeit des Fahrzeugs
+
+/* Levis Vorgabe: der Tank soll fuenf Minuten halten. Gemessen verbraucht ein
+   realistisches Muster aus drei Vierteln Bohren und einem Viertel Schub
+   2,99 Einheiten je Sekunde, macht 898 fuer 300 Sekunden. Aufgerundet 900.
+   Reines Bohren reicht damit gut zwanzig Minuten, reiner Dauerschub zwei. */
+const TANK = 900;
+
+/* Nebenbasis: ein Vorratslager, das Levi unten im Berg ablegt. Jedes bringt
+   vier Ersatztanks mit, jeder fuellt den Haupttank einmal ganz. */
+const BASIS_TANKS = 4;
+
+/* Gekaufte Arbeiter werden Stueck fuer Stueck teurer, sonst kauft man sich
+   einmal frei und das Spiel laeuft von allein weiter. */
+const arbeiterPreis = n => Math.round(100 * Math.pow(1.8, n));
 const MAX_FAHRT  = 8.5;   // Seitentempo des Fahrzeugs
 const FAHR_BREMS = 26;    // Fahrzeug bremst am Boden
 const FAHR_ROLL  = 11;    // in der Luft rollt es lange aus
@@ -585,8 +605,9 @@ const S = {
   werkzeuge:{schaufel:120, pickel:95},
   dynamit:0, balken:20, schienen:0, seilwinde:2,
   wagen:false, bohrer:false, imFahrzeug:false, lampe:0,
+  angestellte:0, tanklager:0, basen:{},  // angestellte Arbeiter, Lager im Rucksack, gesetzte je Berg
   gekauft:['schaufel','pickel'],
-  treibstoff:100, leben:100,
+  treibstoff:TANK, leben:100,
   portal:false, portale:{},        // gekauft, und je Berg die gesetzte Stelle
   tiefstes:0, funk:[], gewonnen:false, ton:true,
 };
@@ -950,7 +971,7 @@ const kapazitaet = () => 25 + (S.wagen ? 25 : 0) + (S.bohrer ? 35 : 0);
 const frachtMasse = () => MATS.reduce((s,m) => s + S.fracht[m]*MATERIAL[m].masse, 0);
 const frachtStueck = () => MATS.reduce((s,m) => s + S.fracht[m], 0);
 const stufe = () => { let s = 1; for (let i = 1; i < STUFEN.length; i++) if (S.verdient >= STUFEN[i]) s = i+1; return s; };
-const arbeiter = () => S.offen.length - 1;
+const arbeiter = () => S.offen.length - 1 + (S.angestellte || 0);
 
 function nimmMaterial(m, n){
   const masse = MATERIAL[m].masse;
@@ -1025,6 +1046,7 @@ function tastenDruck(e){
   // darum steht dort jetzt B - die Leertaste bleibt fuer alle, die sie kennen.
   if (z === ' ' || e.key === ' ' || z === 'b'){ setzeBalken(); e.preventDefault(); return; }
   if (z === 't') nutzePortal();
+  else if (z === 'n') setzeNebenbasis();
   else if (z === 'r') legeSchiene();
   else if (z === 'f') zuendeDynamit();
   else if (z === 'v') wechsleFahrzeug();
@@ -1598,6 +1620,95 @@ function nutzePortal(){
   hud(); speichere();
 }
 
+/* ====================== Nebenbasis mit Ersatztanks ======================= */
+/* Levis Wunsch: kleine Basen zum Kaufen und Ablegen, mit vier Ersatztanks
+   fuer unter der Erde. Sie liegen je Berg getrennt, wie das Portal. Ein
+   Eintrag ist [x, y, Resttanks]. */
+
+const basenHier = () => (S.basen[S.bergNr] = S.basen[S.bergNr] || []);
+
+function setzeNebenbasis(){
+  if ((S.tanklager || 0) <= 0){
+    melde('Du hast keine Nebenbasis dabei, es gibt sie im Laden', 'schlecht', 'nebenbasis');
+    return;
+  }
+  const fx = Math.floor(P.x + P.b/2), fy = Math.floor(P.y + P.h - 0.01);
+  if (fest(fx, fy)){ melde('Hier ist kein Platz, grab erst frei', 'schlecht', 'nebenbasis'); return; }
+  const liste = basenHier();
+  if (liste.some(b => b[0] === fx && b[1] === fy)){
+    melde('Hier steht schon eine Nebenbasis', 'schlecht', 'nebenbasis');
+    return;
+  }
+  S.tanklager--;
+  liste.push([fx, fy, BASIS_TANKS]);
+  klang('kaufen');
+  staub(fx + 0.5, fy + 0.5, 16, '#7fd4ff');
+  melde('Nebenbasis abgestellt, ' + BASIS_TANKS + ' Ersatztanks. Fahr mit halb leerem Tank daran vorbei',
+    'gold');
+  hud(); speichere();
+}
+
+/* Andocken geschieht von selbst, aber erst unter 60 Prozent. Sonst
+   verpuffte ein ganzer Ersatztank fuer einen Schluck. */
+function basenTick(dt){
+  if (!S.bohrer || S.treibstoff >= TANK*0.6) return;
+  const liste = basenHier();
+  if (!liste.length) return;
+  const cx = Math.floor(P.x + P.b/2), cy = Math.floor(P.y + P.h - 0.01);
+  for (let i = 0; i < liste.length; i++){
+    const b = liste[i];
+    if (Math.abs(b[0] - cx) > 1 || Math.abs(b[1] - cy) > 1) continue;
+    if (b[2] <= 0) continue;
+    b[2]--;
+    S.treibstoff = TANK;
+    staub(b[0] + 0.5, b[1] + 0.5, 18, '#7fd4ff');
+    klang('muenze');
+    melde(b[2] > 0
+      ? 'Getankt. Noch ' + b[2] + (b[2] === 1 ? ' Ersatztank' : ' Ersatztanks') + ' in dieser Nebenbasis'
+      : 'Getankt. Diese Nebenbasis ist jetzt leer', 'gut');
+    if (b[2] <= 0) liste.splice(i, 1);
+    hud(); speichere();
+    return;
+  }
+}
+
+function zeichneBasen(){
+  const liste = S.basen[S.bergNr];
+  if (!liste || !liste.length) return;
+  for (const [bx, by, rest] of liste){
+    const px = bx*K - kamera.x, py = by*K - kamera.y;
+    if (px < -K || px > W + K || py < -K || py > H + K) continue;
+    const bod = py + K - 2;
+    // Bodenplatte
+    ctx.fillStyle = '#3b4149';
+    ctx.fillRect(px + 3, bod - 3, K - 6, 4);
+    // drei Kanister nebeneinander, Hoehe zeigt den Vorrat
+    for (let i = 0; i < 3; i++){
+      const kx = px + 5 + i*((K - 12)/3);
+      const voll = rest > i;
+      ctx.fillStyle = voll ? '#2f7fb8' : '#39414a';
+      ctx.fillRect(kx, bod - 16, (K - 14)/3, 13);
+      ctx.fillStyle = voll ? '#5fc0ef' : '#49525c';
+      ctx.fillRect(kx, bod - 16, 2.5, 13);
+      ctx.fillStyle = 'rgba(255,255,255,.30)';
+      ctx.fillRect(kx, bod - 16, (K - 14)/3, 1.4);
+    }
+    // vierter Tank liegend obenauf, solange der Vorrat reicht
+    if (rest >= 4){
+      ctx.fillStyle = '#2f7fb8';
+      ctx.fillRect(px + 6, bod - 22, K - 12, 5);
+      ctx.fillStyle = 'rgba(255,255,255,.30)';
+      ctx.fillRect(px + 6, bod - 22, K - 12, 1.2);
+    }
+    // Zahl der Resttanks, damit man sie von weitem liest
+    ctx.fillStyle = '#9ee0f5';
+    ctx.font = 'bold 10px "Trebuchet MS", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(rest), px + K/2, bod - 25);
+    ctx.textAlign = 'left';
+  }
+}
+
 function wechsleFahrzeug(){
   if (!S.bohrer){ melde('Du hast noch kein Bohrfahrzeug', 'schlecht'); return; }
   S.imFahrzeug = !S.imFahrzeug;
@@ -1688,7 +1799,8 @@ function basisTick(dt){
   }
   if (frachtStueck() > 0) abliefern();
   if (S.leben < 100) S.leben = Math.min(100, S.leben + 34*dt);
-  if (S.bohrer && S.treibstoff < 100) S.treibstoff = Math.min(100, S.treibstoff + 42*dt);
+  // In rund drei Sekunden voll, unabhaengig davon wie gross der Tank ist
+  if (S.bohrer && S.treibstoff < TANK) S.treibstoff = Math.min(TANK, S.treibstoff + (TANK/3)*dt);
 }
 
 /* ========================================================================== */
@@ -3167,6 +3279,7 @@ function zeichne(){
   }
   ctx.globalAlpha = 1;
 
+  zeichneBasen();
   zeichneLevi();
   zeichneDunkelheit();
 
@@ -3216,8 +3329,8 @@ function hud(){
   const tbox = document.getElementById('treibstoffBox');
   tbox.hidden = !S.bohrer;
   if (S.bohrer){
-    const t = Math.round(S.treibstoff);
-    document.getElementById('treibstoffText').textContent = t;
+    const t = Math.round(S.treibstoff / TANK * 100);
+    document.getElementById('treibstoffText').textContent = t + ' %';
     const tb = document.getElementById('treibstoffBalken');
     tb.style.width = t + '%';
     tb.className = 'fuellung ' + (t < 25 ? 'warn' : 'blau');
@@ -3283,6 +3396,7 @@ function hud(){
     ['Seilwinde', S.seilwinde, 'L'],
     ['Lampe', (S.lampe+1) + '/' + LAMPEN.length, 'K'],
     ['Fahrzeug', S.bohrer ? (S.imFahrzeug ? 'AN' : 'aus') : '–', 'V'],
+    ['Nebenbasis', S.tanklager || 0, 'N'],
     ['Portal', S.portal ? (S.portale[S.bergNr] ? 'gesetzt' : 'frei') : '–', 'T'],
   ].map(([n, v, t]) => `<div class="vorratKarte ${v === 0 || v === '–' ? 'null' : ''}"><b>${v}</b>${n} <kbd>${t}</kbd></div>`).join('');
 }
@@ -3331,6 +3445,14 @@ const ausbauStand = () => AUSBAU.filter(m => S.gekauft.includes(m)).length;
    Stufe als naechste kommt. Darum wird der Ladeneintrag hier aufgeloest. */
 function ladenListe(){
   return LADEN.map(w => {
+    if (w.art === 'arbeiter'){
+      const n = S.angestellte || 0;
+      const lohn = (1 + stufe()) * 10;      // je Arbeiter und Minute
+      return {...w, name:'Arbeiter' + (n ? ' (' + n + ' angestellt)' : ''),
+        preis:{gold:arbeiterPreis(n)},
+        text:'Gräbt für dich weiter, auch wenn du woanders bist, und bringt rund '
+           + lohn + ' Goldstücke je Minute. Jeder weitere kostet mehr.'};
+    }
     if (w.art !== 'lampe') return w;
     const naechste = LAMPEN[S.lampe + 1];
     if (!naechste) return {...w, name:LAMPEN[S.lampe].name, fertig:true, preis:{},
@@ -3410,6 +3532,7 @@ function kaufe(id){
   if (w.art === 'werkzeug') S.werkzeuge[id] = WZ[id].halt;
   else if (w.art === 'stapel') S[id] += w.anzahl;
   else if (w.art === 'lampe') S.lampe++;
+  else if (w.art === 'arbeiter') S.angestellte = (S.angestellte || 0) + 1;
   else S[id] = true;
 
   const marke = w.art === 'lampe' ? 'lampe' + S.lampe : id;
@@ -3498,6 +3621,7 @@ function zeigeHilfe(){
       <tr><td>Schiene legen</td><td><kbd>R</kbd></td></tr>
       <tr><td>Dynamit zünden</td><td><kbd>F</kbd></td></tr>
       <tr><td>Seilwinde, zieht dich zur Basis</td><td><kbd>L</kbd></td></tr>
+      <tr><td>Nebenbasis ablegen</td><td><kbd>N</kbd></td></tr>
       <tr><td>Portal setzen und benutzen</td><td><kbd>T</kbd></td></tr>
       <tr><td>Minenwagen heimschicken</td><td><kbd>E</kbd></td></tr>
       <tr><td>Ins Bohrfahrzeug steigen</td><td><kbd>V</kbd></td></tr>
@@ -3517,7 +3641,7 @@ function zeigeHilfe(){
       <tr><td>Balken als Leiter und Stufe</td><td>Setz beim Abstieg mit <kbd>B</kbd> oder <kbd>Leer</kbd> Stützbalken in den Schacht.
         An ihnen kletterst du mit <kbd>▲</kbd> und <kbd>▼</kbd> hoch und runter. Schienen taugen auch dazu.</td></tr>
       <tr><td>Seilwinde</td><td>Steckst du fest, zieht dich <kbd>L</kbd> samt Ladung sofort zur Basis.
-        Zwei hast du dabei, weitere kosten 14 Goldstücke.</td></tr>
+        Zwei hast du dabei, im Laden gibt es fünf auf einmal.</td></tr>
       <tr><td>Portalstein</td><td>Das Gegenstück zur Seilwinde: die zieht dich hoch, das Portal bringt dich
         zurück nach runter. Drück tief im Berg <kbd>T</kbd>, dann steht dort dein Portal. An der Basis
         bringt dich <kbd>T</kbd> sofort wieder dorthin, ohne den ganzen Weg noch einmal zu graben.
@@ -3537,16 +3661,27 @@ function zeigeHilfe(){
       <tr><td>Lampe</td><td>Je tiefer du im Berg steckst, desto weniger siehst du. Wie weit dein
         Licht reicht, hängt an der Lampe: ${LAMPEN.map(l => l.name + ' ' + kommaZahl(l.weite)).join(', ')} Kacheln.
         Bessere Lampen kaufst du im Laden.</td></tr>
-      <tr><td>Dynamit</td><td>Sprengt alles im Umkreis und ist danach weg.</td></tr>
+      <tr><td>Dynamit</td><td>Sprengt alles im Umkreis und ist danach weg. Im Laden bekommst du
+        fünf Stangen auf einmal.</td></tr>
       <tr><td>Stützbalken</td><td>Halten den Stollen im Umkreis von ${STUETZ_R} Kacheln. Wo rote Risse zu sehen sind,
         fehlt die Stütze und die Decke kommt herunter. Balken sind ausserdem Leitern, und du kannst oben darauf stehen. Nochmal <kbd>B</kbd> auf einem gesetzten Balken nimmt ihn wieder mit.</td></tr>
       <tr><td>Schienen und Wagen</td><td>Schienen ×20 kosten 50 Goldstücke, der Minenwagen ebenfalls 50.
         Liegt ein durchgehendes Gleis vom Stollen bis zur Basis, schickst du die Ladung mit <kbd>E</kbd> heim,
         statt selbst hochzuklettern.</td></tr>
       <tr><td>Bohrfahrzeug</td><td>Kostet 100 Goldstücke und braucht 200 verdiente Goldstücke.
-        Es bohrt jedes Gestein, verbraucht dabei aber Treibstoff. Getankt und repariert wird an der Basis, gratis.</td></tr>
-      <tr><td>Berge</td><td>Vier Berge, jeder härter und reicher. Jeder neue Berg bringt einen Zusatzarbeiter,
-        der auch ohne dich Gold abliefert.</td></tr>
+        Es bohrt jedes Gestein, verbraucht dabei aber Treibstoff. Ein voller Tank reicht für
+        rund <b>fünf Minuten</b> normales Graben, bei Dauerschub für zwei. Getankt und repariert
+        wird an der Basis, gratis und in drei Sekunden.</td></tr>
+      <tr><td>Nebenbasis</td><td>Ein Vorratslager für tief unten. Kauf es im Laden und leg es mit
+        <kbd>N</kbd> dort ab, wo du oft vorbeikommst. Es bringt ${BASIS_TANKS} Ersatztanks mit:
+        fährst du mit weniger als 60 Prozent Tank daran vorbei, füllt es dich auf. Nach
+        ${BASIS_TANKS} Füllungen ist es leer und verschwindet. Die Zahl obendrauf sagt,
+        wie viele noch drin sind.</td></tr>
+      <tr><td>Arbeiter</td><td>Du kannst im Laden welche anstellen. Sie graben weiter, auch wenn du
+        woanders bist, und liefern alle sechs Sekunden Gold ab. Der erste kostet 100 Goldstücke,
+        jeder weitere rund das Doppelte.</td></tr>
+      <tr><td>Berge</td><td>Vier Berge, jeder härter und reicher. Jeder neue Berg bringt zusätzlich
+        einen Arbeiter mit, der auch ohne dich Gold abliefert.</td></tr>
     </table>
 
     <h3 class="abschnitt">Warum sich die Tiefe lohnt</h3>
@@ -3688,6 +3823,7 @@ function aktualisiere(dt){
   pruefeEinsturz(dt);
   basisTick(dt);
   sackgassenNetz();
+  basenTick(dt);
   funkenTick(dt);
 
   if (beben > 0) beben = Math.max(0, beben - dt*22);
@@ -3696,17 +3832,18 @@ function aktualisiere(dt){
      schaut. Aus vollem Tank reichen rund dreizehn Sekunden Dauerschub, ohne
      Vorwarnung steht man tief unten. */
   if (S.bohrer && S.imFahrzeug){
-    for (const marke of [30, 12]){
+    for (const anteil of [0.30, 0.12]){
+      const marke = TANK * anteil;
       if (S.treibstoff <= marke && spritGewarnt > marke){
         spritGewarnt = marke;
-        melde(marke === 12
+        melde(anteil === 0.12
           ? 'Treibstoff fast leer, sofort zurück zur Basis'
-          : 'Treibstoff unter ' + marke + ', denk an den Rückweg', 'schlecht');
+          : 'Treibstoff unter ' + Math.round(anteil*100) + ' Prozent, denk an den Rückweg', 'schlecht');
         klang('kaputt');
       }
     }
   }
-  if (S.treibstoff > 35) spritGewarnt = 101;      // beim Tanken wieder scharf
+  if (S.treibstoff > TANK*0.35) spritGewarnt = Infinity;   // beim Tanken wieder scharf
 
   // Zusatzarbeiter liefern ab
   arbeiterUhr += dt;
@@ -3943,8 +4080,8 @@ window.spielPasswort = function(wort){
 window.karteZuruecksetzen = function(alle){
   const nr = S.bergNr;
   // Das gesetzte Portal zeigt sonst mitten in frischen Fels.
-  if (alle){ for (const k in welten) delete welten[k]; S.portale = {}; }
-  else { delete welten[nr]; delete S.portale[nr]; }
+  if (alle){ for (const k in welten) delete welten[k]; S.portale = {}; S.basen = {}; }
+  else { delete welten[nr]; delete S.portale[nr]; delete S.basen[nr]; }
   ladeWelt(nr);
   hud(); speichere();
   klang('wagen');

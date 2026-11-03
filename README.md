@@ -95,10 +95,28 @@ sich das nicht ändern.
 | R | Schiene legen |
 | F | Dynamit zünden |
 | L | Seilwinde, zieht dich zur Basis |
+| N | Nebenbasis ablegen, tankt dich unten auf |
 | T | Portal setzen, an der Basis dorthin reisen |
 | E | Minenwagen heimschicken |
 | V | ins Bohrfahrzeug steigen |
 | K M H | Laden, Berge, Hilfe |
+
+## Levis Zettel
+
+Fünf Punkte, handschriftlich eingereicht, alle umgesetzt:
+
+| | Wunsch | Umsetzung |
+|---|---|---|
+| 1 | Arbeiter kaufen, die für mich arbeiten | Im Laden anstellbar. Erster 100 Goldstücke, jeder weitere ×1,8 |
+| 2 | Mehr Seilwinden je Kauf, und zwar 5 | Seilwinde ×5 für 22 Goldstücke |
+| 3 | Dynamit gleich 5 Stangen je Kauf | Dynamit ×5 für 34 Goldstücke |
+| 4 | Tank vom Bohrfahrzeug soll 5 Minuten halten | Tank von 100 auf **900**. Gemessen 298 s bei drei Vierteln Bohren |
+| 5 | Kleine Basen mit 4 Ersatztanks zum Kaufen und Legen | Nebenbasis für 70 Goldstücke, mit `N` ablegen, tankt unter 60 % voll |
+
+Zu Punkt 4: der Verbrauch wurde gemessen statt geschätzt. Reines Bohren kostet
+0,71 Einheiten je Sekunde, reiner Schub 7,50, ein realistisches Muster aus drei
+Vierteln Bohren 2,99. Daraus folgen 898 für fünf Minuten, aufgerundet 900.
+Volltanken an der Basis bleibt bei drei Sekunden, unabhängig von der Tankgrösse.
 
 ## Was drinsteckt
 
