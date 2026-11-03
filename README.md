@@ -118,6 +118,23 @@ Zu Punkt 4: der Verbrauch wurde gemessen statt geschätzt. Reines Bohren kostet
 Vierteln Bohren 2,99. Daraus folgen 898 für fünf Minuten, aufgerundet 900.
 Volltanken an der Basis bleibt bei drei Sekunden, unabhängig von der Tankgrösse.
 
+## Zonen
+
+Die 600 Meter zerfallen in fünf benannte Abschnitte. Der Name steht in der
+Kopfleiste neben der Tiefe, die Gesteinsfarbe wechselt mit, und beim ersten
+Eintritt meldet sich jeder einmal.
+
+| Zone | Tiefe | Gestein |
+|---|---|---|
+| Wurzelgrund | 0–80 m | weiche Erde, viel Eisenerz |
+| Kupferband | 80–200 m | rostiges Gestein, Kupferadern |
+| Graue Tiefe | 200–340 m | kalter Stein, erste Bronze |
+| Silberkluft | 340–480 m | Hartstein, Silber, Gastaschen |
+| Goldkern | 480–600 m | Granit, Gold, Fundstücke |
+
+Die Grenze zwischen zwei Zonen wandert je Spalte um bis zu drei Kacheln, damit
+die Schichten ineinander fransen statt am Lineal zu enden.
+
 ## Was drinsteckt
 
 Levis Vorgaben: Basis als Haus mit dem Goldlager, Erz, Gold, Silber, Bronze und

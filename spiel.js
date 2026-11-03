@@ -52,6 +52,36 @@ const MATERIAL = {
 const MATS = ['erz','kupfer','bronze','silber','gold'];
 
 /* Tiefenmarken: der Fortschritt nach unten ist zugleich der Fortschritt im Spiel */
+/* Die 600 Meter zerfallen in benannte Abschnitte. Jeder hat eine eigene
+   Gesteinsfarbe und meldet sich beim ersten Eintritt. Tiefe wird dadurch zu
+   einer Folge von Orten statt zu einer Zahl, die hochzaehlt.
+   bis = Kacheltiefe unter dem Bergfuss, ab der die naechste Zone beginnt.
+   tont = Toenung ueber dem Gestein, grund = Farbe der Hohlraeume. */
+const ZONEN = [
+  {name:'Wurzelgrund', bis: 40, tont:null,                  grund:[64,44,28],
+   gruss:'Wurzelgrund. Hier oben ist die Erde weich und das Eisenerz liegt dicht.'},
+  {name:'Kupferband',  bis:100, tont:'rgba(152,72,26,.16)', grund:[58,40,26],
+   gruss:'Kupferband. Das Gestein wird rostig, und Kupfer zieht sich in Adern durch.'},
+  {name:'Graue Tiefe', bis:170, tont:'rgba(92,106,130,.18)', grund:[42,44,52],
+   gruss:'Graue Tiefe. Kalter Stein, und zum ersten Mal Bronze in den Adern.'},
+  {name:'Silberkluft', bis:240, tont:'rgba(70,106,162,.22)', grund:[34,40,58],
+   gruss:'Silberkluft. Hier blitzt Silber im Hartstein. Pass auf die Gastaschen auf.'},
+  {name:'Goldkern',    bis:1e9, tont:'rgba(92,56,122,.26)',  grund:[30,24,46],
+   gruss:'Goldkern. Der Grund des Bergs. Granit, Gold und die alten Fundstücke.'},
+];
+
+function zoneNr(t){
+  for (let i = 0; i < ZONEN.length; i++) if (t < ZONEN[i].bis) return i;
+  return ZONEN.length - 1;
+}
+const zoneAn = y => zoneNr(y - FUSS);
+
+/* Fuer die Toenung wandert die Grenze je Spalte um bis zu drei Kacheln.
+   Ohne das zieht sich eine linealgerade Linie quer durch den Berg, und
+   Gesteinsschichten verlaufen nicht mit dem Lineal. */
+const zoneAnSpalte = (x, y) =>
+  zoneNr(y - FUSS + Math.round((wertRausch(x, 0, 11, 21) - 0.5) * 7));
+
 const FUNK = [
   {tiefe:80,  gold:50,   text:'Achtzig Meter. Levi, hier unten liegt schon Bronze.'},
   {tiefe:200, gold:150,  text:'Zweihundert Meter. Ab hier wird Silber häufig.'},
@@ -609,7 +639,7 @@ const S = {
   gekauft:['schaufel','pickel'],
   treibstoff:TANK, leben:100,
   portal:false, portale:{},        // gekauft, und je Berg die gesetzte Stelle
-  tiefstes:0, funk:[], gewonnen:false, ton:true,
+  tiefstes:0, funk:[], zonen:[], gewonnen:false, ton:true,
 };
 
 const P = {
@@ -2273,20 +2303,18 @@ addEventListener('resize', passeGroesseAn);
 
 /* Gastaschen tragen die Maske des umgebenden Gesteins. Man sieht sie erst,
    wenn man sie angebohrt hat, und genau das macht sie gefährlich. */
+/* Gesteinsfamilie und Hohlraumfarbe wechseln genau an den Zonengrenzen,
+   damit der Uebergang als Ortswechsel lesbar wird und nicht als Verlauf. */
 function tarnung(y){
   const t = y - FUSS;
-  if (t < 30)  return ERDE;
+  if (t < 40)  return ERDE;
   if (t < 100) return STEIN;
-  if (t < 200) return HARTSTEIN;
+  if (t < 170) return HARTSTEIN;
   return GRANIT;
 }
 
 function tiefenFarbe(t){
-  if (t < 30)  return [64, 44, 28];
-  if (t < 70)  return [52, 46, 44];
-  if (t < 120) return [40, 40, 52];
-  if (t < 170) return [32, 30, 50];
-  return [26, 20, 40];
+  return ZONEN[zoneNr(t)].grund;
 }
 
 const KETTEN = [
@@ -3213,6 +3241,11 @@ function zeichne(){
           ctx.drawImage(grund, gx, gy, K, K, px, py, K, K);
         }
       }
+      // Toenung der Zone ueber das Gestein. Sie liegt vor Erz und Truhen,
+      // damit die ihre eigene Farbe behalten und ablesbar bleiben.
+      const zt = ZONEN[zoneAnSpalte(x, y)].tont;
+      if (zt){ ctx.fillStyle = zt; ctx.fillRect(px, py, K, K); }
+
       // Nur noch Erz und Fundstuecke legen einen Fleck. Gewoehnliches Gestein
       // traegt der Untergrund seiner eigenen Art, das laesst keine Kachel stehen.
       const zTyp = typ === GAS ? tarnung(y) : typ;
@@ -3305,6 +3338,8 @@ function hud(){
   const tiefe = Math.max(0, Math.round((P.y + P.h - FUSS) * METER));
   document.getElementById('bergName').textContent = berg.name;
   document.getElementById('tiefe').textContent = tiefe + ' m';
+  const zn = document.getElementById('zoneName');
+  if (zn) zn.textContent = tiefe > 0 ? ZONEN[zoneAn(P.y + P.h)].name : 'Oberfläche';
   document.getElementById('goldZahl').textContent = zahl(S.gold);
   document.getElementById('franken').textContent = 'CHF ' + zahl(S.gold*FRANKEN);
   document.getElementById('stufe').textContent = stufe();
@@ -3680,6 +3715,10 @@ function zeigeHilfe(){
       <tr><td>Arbeiter</td><td>Du kannst im Laden welche anstellen. Sie graben weiter, auch wenn du
         woanders bist, und liefern alle sechs Sekunden Gold ab. Der erste kostet 100 Goldstücke,
         jeder weitere rund das Doppelte.</td></tr>
+      <tr><td>Zonen</td><td>Der Berg zerfällt in fünf Abschnitte, die du an der Gesteinsfarbe
+        erkennst und deren Name in der Kopfleiste neben der Tiefe steht:
+        ${ZONEN.map((z,i) => z.name + ' bis ' + (i === ZONEN.length-1 ? '600' : z.bis*METER) + ' m').join(', ')}.
+        Beim ersten Eintritt meldet sich jede einmal.</td></tr>
       <tr><td>Berge</td><td>Vier Berge, jeder härter und reicher. Jeder neue Berg bringt zusätzlich
         einen Arbeiter mit, der auch ohne dich Gold abliefert.</td></tr>
     </table>
@@ -3855,6 +3894,18 @@ function aktualisiere(dt){
 
   const tiefe = Math.max(0, Math.round((P.y + P.h - FUSS) * METER));
   if (tiefe > S.tiefstes) S.tiefstes = tiefe;
+
+  /* Eintritt in eine neue Zone. Einmal je Spielstand, nicht je Berg: die
+     Abschnitte liegen in jedem Berg auf derselben Tiefe. */
+  if (tiefe > 0){
+    const z = zoneAn(P.y + P.h);
+    S.zonen = S.zonen || [];
+    if (!S.zonen.includes(z)){
+      S.zonen.push(z);
+      melde(ZONEN[z].gruss, 'gold');
+      klang('muenze');
+    }
+  }
 
   // Tiefenmarken: je tiefer, desto weiter die Geschichte
   for (let i = 0; i < FUNK.length; i++){

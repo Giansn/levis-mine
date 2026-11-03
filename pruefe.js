@@ -1039,6 +1039,51 @@ lies('window.karteZuruecksetzen()');
 pruefe('5 Nebenbasis: Karte zuruecksetzen raeumt sie weg',
   (lies('S.basen[0]') || []).length === 0);
 
+/* ================================ Zonen ================================== */
+pruefe('Zonen: fuenf Abschnitte', lies('ZONEN.length') === 5,
+  lies('ZONEN.map(z => z.name).join(", ")'));
+pruefe('Zonen: Grenzen steigen an',
+  lies('ZONEN.every((z,i) => i === 0 || z.bis > ZONEN[i-1].bis)') === true,
+  lies('ZONEN.slice(0,-1).map(z => z.bis*METER + " m").join(" / ")'));
+pruefe('Zonen: Oberflaeche liegt im ersten Abschnitt', lies('zoneNr(0)') === 0);
+pruefe('Zonen: genau an der Grenze beginnt die naechste',
+  lies('zoneNr(ZONEN[0].bis - 1)') === 0 && lies('zoneNr(ZONEN[0].bis)') === 1);
+pruefe('Zonen: ganz unten der letzte Abschnitt',
+  lies('zoneNr(TIEFEN)') === lies('ZONEN.length - 1'));
+pruefe('Zonen: jede hat eigene Hohlraumfarbe',
+  lies('new Set(ZONEN.map(z => z.grund.join(","))).size') === 5);
+pruefe('Zonen: Gesteinsfamilie wechselt an den Grenzen',
+  lies('tarnung(FUSS + ZONEN[0].bis - 1)') !== lies('tarnung(FUSS + ZONEN[0].bis)'));
+pruefe('Zonen: Tiefenfarbe folgt der Zone',
+  lies('tiefenFarbe(10).join(",")') === lies('ZONEN[0].grund.join(",")') &&
+  lies('tiefenFarbe(TIEFEN).join(",")') === lies('ZONEN[4].grund.join(",")'));
+
+/* Begruessung: einmal je Abschnitt, und sie wiederholt sich nicht */
+lies('ladeWelt(0); S.zonen = []; S.leben = 1e9');
+const gruesse = lies(`(() => {
+  const gesehen = [];
+  for (let i = 0; i < ZONEN.length; i++){
+    const t = (i === 0 ? 5 : ZONEN[i-1].bis + 3);
+    P.y = FUSS + t - P.h; P.x = 20;
+    aktualisiere(1/60); aktualisiere(1/60);
+    gesehen.push(S.zonen.length);
+  }
+  return gesehen;
+})()`);
+pruefe('Zonen: jede meldet sich beim Eintritt',
+  JSON.stringify(gruesse) === '[1,2,3,4,5]', JSON.stringify(gruesse));
+lies(`(() => { P.y = FUSS + 5 - P.h; for (let i=0;i<10;i++) aktualisiere(1/60); })()`);
+pruefe('Zonen: und nur einmal', lies('S.zonen.length') === 5, lies('S.zonen.length') + ' gemeldet');
+
+/* Der Name steht in der Kopfleiste */
+lies(`(() => { P.y = FUSS + 120 - P.h; hud(); })()`);
+pruefe('Zonen: Name steht neben der Tiefe',
+  lies(`document.getElementById('zoneName').textContent`) === lies('ZONEN[zoneNr(120)].name'),
+  lies(`document.getElementById('zoneName').textContent`));
+lies(`(() => { P.y = basisY() - P.h; hud(); })()`);
+pruefe('Zonen: oben steht Oberfläche',
+  lies(`document.getElementById('zoneName').textContent`) === 'Oberfläche');
+
 /* ------------------------------- Bericht --------------------------------- */
 function bericht(){
   console.log('');
